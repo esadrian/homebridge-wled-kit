@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WLED Configuration</title>
+  <title>Simpler WLED Configuration</title>
+  <!-- Bootstrap CSS is injected by Homebridge (includes its theme overrides + dark mode). -->
+  <!-- We only load Bootstrap JS ourselves for data-bs-toggle="dropdown" to work. -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <style>
     .device-list {
       margin-top: 20px;
@@ -21,7 +25,6 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
     }
 
     .device-name {
@@ -29,6 +32,17 @@
       font-size: 1.1em;
       color: #212529;
     }
+
+    .device-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+      background-color: #adb5bd;
+    }
+    .device-status.online { background-color: #28a745; }
+    .device-status.offline { background-color: #dc3545; }
 
     .device-info {
       display: grid;
@@ -67,112 +81,10 @@
       color: #856404;
     }
 
-    .btn {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 1em;
-      transition: background-color 0.3s;
-    }
-
-    .btn-primary {
-      background-color: #007bff;
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background-color: #0056b3;
-    }
-
-    .btn-primary:disabled {
-      background-color: #6c757d;
-      cursor: not-allowed;
-    }
-
-    .btn-success {
-      background-color: #28a745;
-      color: white;
-      padding: 6px 12px;
-      font-size: 0.9em;
-    }
-
-    .btn-success:hover {
-      background-color: #218838;
-    }
-
-    .spinner {
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #007bff;
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
-      animation: spin 1s linear infinite;
-      display: inline-block;
-      margin-left: 10px;
-      vertical-align: middle;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .alert {
-      padding: 12px;
-      margin-bottom: 20px;
-      border-radius: 5px;
-    }
-
-    .alert-info {
-      background-color: #d1ecf1;
-      color: #0c5460;
-      border: 1px solid #bee5eb;
-    }
-
-    .alert-warning {
-      background-color: #fff3cd;
-      color: #856404;
-      border: 1px solid #ffeaa7;
-    }
-
     .no-devices {
       text-align: center;
       padding: 40px;
       color: #6c757d;
-    }
-
-    .settings-section {
-      background-color: #fff;
-      border: 1px solid #dee2e6;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 30px;
-    }
-
-    .settings-section h4 {
-      margin-top: 0;
-      margin-bottom: 15px;
-      color: #212529;
-    }
-
-    .form-group {
-      margin-bottom: 15px;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: 600;
-      color: #495057;
-    }
-
-    .form-control {
-      width: 100%;
-      padding: 8px 12px;
-      border: 1px solid #ced4da;
-      border-radius: 4px;
-      font-size: 1em;
     }
 
     .toggle-switch {
@@ -234,17 +146,7 @@
       gap: 10px;
       align-items: center;
       margin-top: 10px;
-    }
-
-    .btn-danger {
-      background-color: #dc3545;
-      color: white;
-      padding: 6px 12px;
-      font-size: 0.9em;
-    }
-
-    .btn-danger:hover {
-      background-color: #c82333;
+      flex-wrap: wrap;
     }
 
     .status-badge {
@@ -263,6 +165,47 @@
     .status-disabled {
       background-color: #f8d7da;
       color: #721c24;
+    }
+
+    .advanced-section-title {
+      font-weight: 600;
+      color: #212529;
+      margin-bottom: 8px;
+      font-size: 0.95em;
+    }
+
+    .advanced-subsection {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background-color: #ffffff;
+      border: 1px solid #e9ecef;
+    }
+
+    .advanced-subsection-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .advanced-subsection-title {
+      font-weight: 600;
+      color: #343a40;
+      font-size: 0.9em;
+    }
+
+    .advanced-help {
+      font-size: 0.8em;
+      color: #6c757d;
+      margin-top: 4px;
+    }
+
+
+    .nightlight-empty {
+      font-size: 0.8em;
+      color: #6c757d;
+      font-style: italic;
     }
 
     .tabs {
@@ -292,11 +235,15 @@
       font-weight: 600;
     }
 
-    .tab-content {
+    .page-tab-content {
       display: none;
     }
 
-    .tab-content.active {
+    .page-tab-content.active {
+      display: block;
+    }
+
+    .device-tab-pane {
       display: block;
     }
 
@@ -400,6 +347,7 @@
       padding: 40px;
       color: #6c757d;
     }
+
   </style>
 </head>
 <body>
@@ -409,12 +357,11 @@
     <div class="tabs">
       <button id="devicesTabBtn" class="tab active" onclick="switchTab('devices')">Configured Devices</button>
       <button class="tab" onclick="switchTab('discovery')">Device Discovery</button>
-      <button class="tab" onclick="switchTab('presets')">Manage Presets</button>
       <button class="tab" onclick="switchTab('settings')">Plugin Settings</button>
     </div>
 
     <!-- Configured Devices Tab -->
-    <div id="devicesTab" class="tab-content active">
+    <div id="devicesTab" class="page-tab-content active">
         Manage your configured WLED devices. Enable or disable devices, or remove them from your configuration.
       <div id="configuredDeviceList" class="device-list">
         <div class="no-devices">Loading configured devices...</div>
@@ -422,14 +369,17 @@
     </div>
 
     <!-- Discovery Tab -->
-    <div id="discoveryTab" class="tab-content">
+    <div id="discoveryTab" class="page-tab-content">
         Click the "Start Discovery" button to scan your network for WLED devices.
       
       <div style="margin-bottom: 20px; margin-top: 20px; text-align: center;">
         <button id="discoverBtn" class="btn btn-primary" onclick="startDiscovery()">
           Start Discovery
         </button>
-        <span id="discoveringSpinner" class="spinner" style="display: none;"></span>
+        <button id="stopDiscoverBtn" class="btn btn-secondary" style="margin-left: 8px; display: none;" onclick="stopDiscovery()">
+          Stop
+        </button>
+        <span id="discoveringSpinner" class="spinner-border spinner-border-sm text-primary ms-2" style="display: none;" role="status"></span>
       </div>
 
       <div id="discoveredDeviceList" class="device-list">
@@ -437,21 +387,8 @@
       </div>
     </div>
 
-    <!-- Presets Tab -->
-    <div id="presetsTab" class="tab-content">
-        Manage presets for each WLED device. Enable or disable presets to control which ones appear in HomeKit.
-      
-      <div id="deviceTabs" class="tabs" style="border-bottom: 1px solid #dee2e6; margin-bottom: 15px;">
-        <!-- Device tabs will be populated here -->
-      </div>
-
-      <div id="presetContent">
-        <!-- Preset lists will be populated here -->
-      </div>
-    </div>
-
     <!-- Settings Tab -->
-    <div id="settingsTab" class="tab-content">
+    <div id="settingsTab" class="page-tab-content">
 
         <div class="form-group">
           <label for="logLevel">Log Level</label>
@@ -466,17 +403,118 @@
           </small>
         </div>
 
+        <div class="form-group">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <label class="toggle-switch" title="Auto-stop discovery">
+              <input id="autoStopDiscovery" type="checkbox" onchange="savePresentationSettings()">
+              <span class="toggle-slider"></span>
+            </label>
+            <span style="color: #495057; font-weight: 600;">
+              Auto-stop discovery when all found devices are configured
+            </span>
+          </div>
+          <small style="color: #6c757d; margin-top: 5px; display: block;">
+            Stops the discovery scan early when everything discovered is already in your config.
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="tvNameSuffix">TV Accessory Name Suffix</label>
+          <input id="tvNameSuffix" class="form-control" type="text" placeholder="Presets" onblur="savePresentationSettings()">
+          <small style="color: #6c757d; margin-top: 5px; display: block;">
+            Used when presets are exposed as a separate TV accessory (e.g., "Kitchen {suffix}").
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="customInputLabel">Custom Input Label</label>
+          <input id="customInputLabel" class="form-control" type="text" placeholder="Custom" onblur="savePresentationSettings()">
+          <small style="color: #6c757d; margin-top: 5px; display: block;">
+            Label for Identifier 0 in the TV input list (manual/no-preset mode).
+          </small>
+        </div>
+
+        <hr>
+        <h6 class="text-muted mb-3">Defaults for newly added devices</h6>
+
+        <div class="form-group">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <label class="toggle-switch" title="Use WebSockets by default">
+              <input id="defaultUseWebSockets" type="checkbox" onchange="saveDefaultSettings()">
+              <span class="toggle-slider"></span>
+            </label>
+            <span style="color: #495057; font-weight: 600;">Use WebSockets by default</span>
+          </div>
+          <small style="color: #6c757d; margin-top: 5px; display: block;">
+            Use WebSockets for real-time updates on newly added devices (requires WLED v0.13+).
+          </small>
+        </div>
+
+        <div class="form-group">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <label class="toggle-switch" title="Add preset controls by default">
+              <input id="defaultUsePresetService" type="checkbox" onchange="saveDefaultSettings()">
+              <span class="toggle-slider"></span>
+            </label>
+            <span style="color: #495057; font-weight: 600;">Add preset controls by default</span>
+          </div>
+          <small style="color: #6c757d; margin-top: 5px; display: block;">
+            Create a preset control accessory for newly added devices.
+          </small>
+        </div>
+
+        <hr>
+        <h6 class="text-muted mb-3">Global nightlight defaults</h6>
+        <small style="color: #6c757d; display: block; margin-bottom: 12px;">
+          Applied to devices that do not define their own nightlight settings.
+        </small>
+
+        <div class="form-group">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <label class="toggle-switch" title="Enable nightlight by default">
+              <input id="globalNightlightEnabled" type="checkbox" onchange="saveDefaultSettings()">
+              <span class="toggle-slider"></span>
+            </label>
+            <span style="color: #495057; font-weight: 600;">Enable nightlight by default</span>
+          </div>
+        </div>
+
+        <div id="globalNightlightTimers" class="mt-2"></div>
+        <button class="btn btn-success btn-sm" onclick="addGlobalNightlightTimer()">Add timer</button>
+
       </div>
   </div>
 
   <script>
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     let isDiscovering = false;
     let currentConfig = null;
+    let discoveryStopRequested = false;
+
+    // Preserve user-edited names across discovery re-renders.
+    const discoveredNameEdits = {};
+    const discoveredSuggestedNames = {};
+
+    function discoveredNameInputId(host) {
+      return `discovered-name-${String(host).replace(/[^a-zA-Z0-9]/g, '')}`;
+    }
+
+    function setDiscoveredName(host, value) {
+      discoveredNameEdits[host] = (value || '').trim();
+    }
 
     // Tab switching
     function switchTab(tabName) {
       // Hide all tabs
-      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.page-tab-content').forEach(tab => tab.classList.remove('active'));
       document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
 
       // Show selected tab
@@ -488,8 +526,6 @@
         loadConfiguredDevices();
       } else if (tabName === 'settings') {
         loadSettings();
-      } else if (tabName === 'presets') {
-        loadPresetsTab();
       }
     }
 
@@ -589,6 +625,8 @@
           return;
         }
 
+        const globalNightlight = configData?.[0]?.manualDevicesSection?.nightlight || { enabled: false, timers: [] };
+
         deviceList.innerHTML = allDevices.map((device, index) => {
           // Ensure device is an object
           if (!device || typeof device !== 'object') {
@@ -612,73 +650,325 @@
             `;
           }
 
-          const enabled = device.enabled !== false; // Default to enabled if not specified
-          const isCached = device.isCached === true; // Is this a cached-only device?
+          const enabled = device.enabled !== false;
+          const isCached = device.isCached === true;
           const statusClass = enabled ? 'device-enabled' : 'device-disabled';
-          const statusBadge = enabled ? 'status-enabled' : 'status-disabled';
-          const statusText = enabled ? 'Enabled' : 'Disabled';
 
           const deviceName = device.name || 'Unnamed Device';
           const deviceHost = device.host || 'Unknown';
           const devicePort = device.port || 80;
+          const usePresetService = device.deviceSettings?.usePresetService !== false;
+
+          // Nightlight: linked = inheriting from global, unlinked = custom per device
+          const isNightlightLinked = !device.deviceSettings?.nightlight;
+          const nightlight = isNightlightLinked ? globalNightlight : (device.deviceSettings?.nightlight || {});
+          const nightlightEnabled = nightlight.enabled === true;
+          const nightlightTimers = Array.isArray(nightlight.timers) ? nightlight.timers : [];
+
+          function timersHtml(timers, linked, idx) {
+            if (timers.length === 0) {
+              return `<div class="nightlight-empty">${linked ? 'No global timers configured.' : 'No timers configured yet.'}</div>`;
+            }
+            return timers.map((t, tIndex) => `
+              <div class="row g-2 align-items-end mb-2">
+                <div class="col">
+                  <label class="form-label small mb-1">Name</label>
+                  <input type="text" class="form-control form-control-sm"
+                         value="${(t.name || '').replace(/"/g, '&quot;')}" placeholder="e.g. 5 min"
+                         ${linked ? 'disabled' : `onchange="updateNightlightTimerName(${idx}, ${tIndex}, this.value)"`}>
+                </div>
+                <div class="col-3">
+                  <label class="form-label small mb-1">Seconds</label>
+                  <input type="number" class="form-control form-control-sm"
+                         min="1" value="${t.seconds || ''}" placeholder="300"
+                         ${linked ? 'disabled' : `onchange="updateNightlightTimerSeconds(${idx}, ${tIndex}, this.value)"`}>
+                </div>
+                ${linked ? '' : `
+                <div class="col-auto">
+                  <button class="btn btn-danger btn-sm" onclick="removeNightlightTimer(${idx}, ${tIndex})">Remove</button>
+                </div>`}
+              </div>
+            `).join('');
+          }
+
+          const advancedHtml = `
+            <div class="advanced-section">
+              ${isCached ? '' : `
+              <div class="advanced-subsection">
+                <div class="advanced-subsection-header">
+                  <div class="advanced-subsection-title">Use WebSockets</div>
+                  <label class="toggle-switch" title="Use WebSockets for real-time updates">
+                    <input type="checkbox"
+                           ${device.deviceSettings?.useWebSockets !== false ? 'checked' : ''}
+                           onchange="toggleUseWebSockets(${index}, this.checked)">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="advanced-help">
+                  Use WebSockets for real-time state updates (requires WLED v0.13+).
+                </div>
+              </div>
+
+              <div class="advanced-subsection">
+                <div class="advanced-subsection-header">
+                  <div class="advanced-subsection-title">Single accessory (TV inputs)</div>
+                  <label class="toggle-switch" title="Single accessory (TV inputs)">
+                    <input type="checkbox"
+                           ${(device.deviceSettings?.singleAccessoryWithTV === true) ? 'checked' : ''}
+                           onchange="toggleSingleAccessoryWithTV(${index}, this.checked)">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="advanced-help">
+                  Expose this device and its presets as a single TV accessory with inputs instead of separate accessories.
+                </div>
+              </div>
+              `}
+
+              <div class="advanced-subsection" id="nightlight-section-${index}">
+                ${isNightlightLinked ? `
+                <div class="advanced-subsection-header">
+                  <div class="advanced-subsection-title">Nightlight timers</div>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge ${nightlightEnabled ? 'bg-info' : 'bg-secondary'}"
+                          style="cursor:pointer;" title="Click to customize per-device"
+                          onclick="unlinkNightlight(${index})">
+                      ${nightlightEnabled ? 'Inherited' : 'Disabled'}
+                    </span>
+                    <label class="toggle-switch" title="Nightlight (inherited from Plugin Settings)">
+                      <input type="checkbox" ${nightlightEnabled ? 'checked' : ''} disabled>
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+                </div>
+                <div class="advanced-help">
+                  ${nightlightEnabled ? 'Inheriting from Plugin Settings. Click the badge to customize per-device.' : 'Global nightlight is disabled. Click the badge to customize per-device.'}
+                </div>
+                ${nightlightEnabled ? `<div class="mt-2">${timersHtml(nightlightTimers, true, index)}</div>` : ''}
+                ` : `
+                <div class="advanced-subsection-header">
+                  <div class="advanced-subsection-title">Nightlight timers</div>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge ${nightlightEnabled ? 'bg-success' : 'bg-secondary'}"
+                          id="nightlight-badge-${index}">
+                      ${nightlightEnabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                    <label class="toggle-switch" title="Enable a separate Nightlight accessory with timers for this device">
+                      <input type="checkbox"
+                             ${nightlightEnabled ? 'checked' : ''}
+                             onchange="toggleNightlightEnabled(${index}, this.checked)">
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+                </div>
+                <div class="advanced-help">
+                  Configure one Nightlight accessory per device, with multiple timers (e.g. 5 min, 40 min).
+                </div>
+                <div class="mt-2" id="nightlight-timers-${index}">
+                  ${timersHtml(nightlightTimers, false, index)}
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                  <button class="btn btn-success btn-xs" onclick="addNightlightTimer(${index})">Add timer</button>
+                  <button class="btn btn-link btn-xs p-0" style="font-size:0.75rem;" onclick="resetNightlightToGlobal(${index})">Reset to global</button>
+                </div>
+                `}
+              </div>
+
+              <div class="advanced-subsection">
+                <div class="advanced-subsection-header">
+                  <div class="advanced-subsection-title">Preset controls</div>
+                  <label class="toggle-switch" title="Expose presets as a TV accessory or inputs for this device">
+                    <input type="checkbox"
+                           ${usePresetService ? 'checked' : ''}
+                           onchange="toggleUsePresetService(${index}, this.checked)">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="advanced-help">
+                  Choose which presets appear in HomeKit for this device.
+                </div>
+                <div id="inline-presets-${index}">
+                  <button class="btn btn-outline-primary btn-sm mt-2"
+                          onclick="loadInlinePresets(${index}, '${deviceHost.replace(/'/g, "\\'")}', ${devicePort}, '${deviceName.replace(/'/g, "\\'")}')">
+                    Load Presets
+                  </button>
+                </div>
+              </div>
+
+              <div class="advanced-subsection" id="hyperhdr-section-${index}">
+                <div class="advanced-subsection-header">
+                  <div class="advanced-subsection-title">HyperHDR Sync</div>
+                  <label class="toggle-switch" title="Sync power on/off to HyperHDR">
+                    <input type="checkbox"
+                           ${device.deviceSettings?.hyperHDR?.enabled === true ? 'checked' : ''}
+                           onchange="toggleHyperHDREnabled(${index}, this.checked)">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div class="advanced-help">When enabled, turning this device on or off will also call the HyperHDR API.</div>
+                ${device.deviceSettings?.hyperHDR?.enabled === true ? `
+                <div class="mt-2">
+                  <div class="row g-2 align-items-end mb-2">
+                    <div class="col">
+                      <label class="form-label small mb-1">Host</label>
+                      <input type="text" class="form-control form-control-sm"
+                             value="${(device.deviceSettings?.hyperHDR?.host || '').replace(/"/g, '&quot;')}"
+                             placeholder="192.168.1.x"
+                             onchange="updateHyperHDRField(${index}, 'host', this.value)">
+                    </div>
+                    <div class="col-3">
+                      <label class="form-label small mb-1">Port</label>
+                      <input type="number" class="form-control form-control-sm" min="1" max="65535"
+                             value="${device.deviceSettings?.hyperHDR?.port || 8090}"
+                             onchange="updateHyperHDRField(${index}, 'port', parseInt(this.value))">
+                    </div>
+                  </div>
+                  <div class="row g-2 align-items-end mb-2">
+                    <div class="col">
+                      <label class="form-label small mb-1">Component</label>
+                      <select class="form-select form-select-sm"
+                              onchange="updateHyperHDRField(${index}, 'component', this.value)">
+                        <option value="LEDDEVICE" ${(device.deviceSettings?.hyperHDR?.component || 'LEDDEVICE') === 'LEDDEVICE' ? 'selected' : ''}>LEDDEVICE</option>
+                        <option value="ALL" ${device.deviceSettings?.hyperHDR?.component === 'ALL' ? 'selected' : ''}>ALL</option>
+                      </select>
+                    </div>
+                    <div class="col">
+                      <label class="form-label small mb-1">Auth Token (optional)</label>
+                      <input type="password" class="form-control form-control-sm"
+                             value="${(device.deviceSettings?.hyperHDR?.token || '').replace(/"/g, '&quot;')}"
+                             placeholder="Leave empty if not required"
+                             onchange="updateHyperHDRField(${index}, 'token', this.value)">
+                    </div>
+                  </div>
+                  <div class="row g-2 align-items-end mb-2">
+                    <div class="col">
+                      <label class="form-label small mb-1">Appearance in HomeKit</label>
+                      <select class="form-select form-select-sm"
+                              onchange="updateHyperHDRField(${index}, 'serviceType', this.value)">
+                        <option value="Switch" ${(device.deviceSettings?.hyperHDR?.serviceType || 'Switch') === 'Switch' ? 'selected' : ''}>Switch</option>
+                        <option value="Outlet" ${device.deviceSettings?.hyperHDR?.serviceType === 'Outlet' ? 'selected' : ''}>Outlet</option>
+                      </select>
+                    </div>
+                    <div class="col">
+                      <label class="form-label small mb-1">Name in HomeKit</label>
+                      <input type="text" class="form-control form-control-sm"
+                             value="${(device.deviceSettings?.hyperHDR?.switchName || 'HyperHDR').replace(/"/g, '&quot;')}"
+                             placeholder="HyperHDR"
+                             onchange="updateHyperHDRField(${index}, 'switchName', this.value)">
+                    </div>
+                  </div>
+                </div>
+                ` : ''}
+              </div>
+            </div>
+          `;
 
           return `
             <div class="device-card ${statusClass}">
               <div class="device-header">
-                <div class="device-name">${deviceName}</div>
-                <div>
-                  ${isCached ? '<span class="discovery-badge badge-direct">CACHED</span> ' : ''}
-                  <span class="status-badge ${statusBadge}">${statusText}</span>
-                </div>
-              </div>
-              <div class="device-info">
-                <span class="device-label">Host:</span>
-                <span>${deviceHost}:${devicePort}</span>
-
-                ${device.firmwareVersion ? `
-                <span class="device-label">Version:</span>
-                <span>${device.firmwareVersion}</span>
-                ` : ''}
-
-                ${device.macAddress ? `
-                <span class="device-label">MAC Address:</span>
-                <span>${device.macAddress}</span>
-                ` : ''}
-
-                ${device.ledCount ? `
-                <span class="device-label">LED Count:</span>
-                <span>${device.ledCount}</span>
-                ` : ''}
-              </div>
-              <div class="device-actions">
-                ${isCached ? `
-                  <span style="color: #856404; font-size: 0.9em;">
-                    ⚠️ This device is cached by Homebridge but not in your config.
-                    Add it to config to manage it here.
-                  </span>
-                ` : `
-                  <label class="toggle-switch">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  ${isCached ? '<span class="discovery-badge badge-direct">CACHED</span>' : `
+                  <label class="toggle-switch" title="${enabled ? 'Enabled' : 'Disabled'}">
                     <input type="checkbox" ${enabled ? 'checked' : ''} onchange="toggleDevice(${index}, this.checked)">
                     <span class="toggle-slider"></span>
                   </label>
-                  <span style="color: #6c757d; font-size: 0.9em;">
-                    ${enabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                  <button class="btn btn-danger" onclick="removeDevice(${index}, '${deviceName.replace(/'/g, "\\'")}', this)">
+                  `}
+                  <div class="device-name" id="device-name-${index}">${escapeHtml(deviceName)}</div>
+                  ${isCached ? '' : `<span class="device-status" id="device-status-${index}" title="Checking..."></span>`}
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                  ${isCached ? '' : `
+                  <button class="btn btn-danger btn-sm"
+                          onclick="removeDevice(${index}, '${deviceName.replace(/'/g, "\\'")}', this)">
                     Remove
                   </button>
-                `}
+                  <div class="dropdown">
+                    <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="dropdown" aria-expanded="false" title="More options">
+                      <i class="fas fa-ellipsis-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li>
+                        <a class="dropdown-item" href="#" onclick="event.preventDefault(); renameDevice(${index}, '${deviceName.replace(/'/g, "\\'")}')">
+                          <i class="fas fa-pen me-2"></i>Rename
+                        </a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="#" onclick="event.preventDefault(); resetDeviceSettings(${index}, '${deviceName.replace(/'/g, "\\'")}')">
+                          <i class="fas fa-rotate-left me-2"></i>Reset to defaults
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+                  `}
+                  <button class="btn btn-secondary btn-sm"
+                          onclick="toggleDeviceDetails(${index})" type="button" id="device-details-btn-${index}">
+                    <i class="fas fa-sliders"></i>
+                  </button>
+                </div>
+              </div>
+              <div id="device-details-${index}" class="collapse" style="margin-top:8px;">
+                <div class="tabs">
+                  <button class="tab active" id="info-tab-${index}" type="button"
+                          onclick="switchDeviceTab(${index}, 'info')">
+                    Information
+                  </button>
+                  <button class="tab" id="advanced-tab-${index}" type="button"
+                          onclick="switchDeviceTab(${index}, 'advanced')">
+                    Advanced options
+                  </button>
+                </div>
+                <div>
+                <div id="device-info-pane-${index}" class="device-tab-pane">
+                  <div class="device-info">
+                    <span class="device-label">Host:</span>
+                    <span>${deviceHost}:${devicePort}</span>
+
+                    ${device.firmwareVersion ? `
+                    <span class="device-label">Version:</span>
+                    <span>${device.firmwareVersion}</span>
+                    ` : ''}
+
+                    ${device.macAddress ? `
+                    <span class="device-label">MAC Address:</span>
+                    <span>${device.macAddress}</span>
+                    ` : ''}
+
+                    ${device.ledCount ? `
+                    <span class="device-label">LED Count:</span>
+                    <span>${device.ledCount}</span>
+                    ` : ''}
+                  </div>
+                  ${isCached ? `
+                  <div class="device-actions">
+                    <span style="color: #856404; font-size: 0.9em;">
+                      ⚠️ This device is cached by Homebridge but not in your config.
+                      Add it to config to manage it here.
+                    </span>
+                  </div>
+                  ` : ''}
+                </div>
+                <div id="device-advanced-pane-${index}" class="device-tab-pane" style="display:none;">
+                  ${advancedHtml}
+                </div>
+                </div>
               </div>
             </div>
           `;
         }).join('');
+
+        // Check reachability for each non-cached device
+        allDevices.forEach((device, idx) => {
+          if (!device.isCached && device.host) {
+            checkDeviceReachability(idx, device.host, device.port || 80);
+          }
+        });
       } catch (error) {
         console.error('[UI] Error loading configured devices:', error);
         console.error('[UI] Error stack:', error.stack);
         deviceList.innerHTML = `
           <div class="alert alert-warning">
             <strong>Failed to load configured devices:</strong><br>
-            ${error.message}<br>
+            ${escapeHtml(error.message)}<br>
             <small>Check the browser console (F12) for more details.</small>
           </div>
         `;
@@ -687,6 +977,7 @@
 
     // Get devices array from config (handles both structures)
     function getDevicesArray(config) {
+      if (!config || !config[0]) return null;
       if (config[0].manualDevicesSection && config[0].manualDevicesSection.devices) {
         return config[0].manualDevicesSection.devices;
       } else if (config[0].devices) {
@@ -700,6 +991,22 @@
       const tabBtn = document.getElementById('devicesTabBtn');
       if (tabBtn) {
         tabBtn.textContent = count > 0 ? `Configured Devices (${count})` : 'Configured Devices';
+      }
+    }
+
+    async function checkDeviceReachability(index, host, port) {
+      const indicator = document.getElementById(`device-status-${index}`);
+      if (!indicator) return;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const response = await fetch(`http://${host}:${port}/json/info`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        indicator.className = `device-status ${response.ok ? 'online' : 'offline'}`;
+        indicator.title = response.ok ? 'Online' : 'Offline';
+      } catch {
+        indicator.className = 'device-status offline';
+        indicator.title = 'Offline';
       }
     }
 
@@ -721,15 +1028,566 @@
           'Device Updated'
         );
 
-        // Reload the list
-        loadConfiguredDevices();
+        // Update card CSS class in-place to reflect enabled/disabled state
+        const card = document.querySelector(`#device-details-${index}`)?.closest('.device-card');
+        if (card) {
+          card.classList.toggle('device-enabled', enabled);
+          card.classList.toggle('device-disabled', !enabled);
+        }
       } catch (error) {
         console.error('Error toggling device:', error);
         await window.homebridge.toast.error(`Failed to update device: ${error.message}`, 'Error');
       }
     }
 
+    async function toggleSingleAccessoryWithTV(index, enabled) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+
+        if (!devices || !devices[index]) {
+          throw new Error('Device not found');
+        }
+
+        if (!devices[index].deviceSettings) {
+          devices[index].deviceSettings = {};
+        }
+
+        devices[index].deviceSettings.singleAccessoryWithTV = enabled;
+
+        await window.homebridge.updatePluginConfig(config);
+
+        // Clear cached accessories for this host so Homebridge can re-publish cleanly after restart.
+        const host = devices[index]?.host;
+        if (host) {
+          await window.homebridge.request('/remove-cached-accessory', { host }).catch(() => {});
+        }
+
+        await window.homebridge.toast.success(
+          `Single accessory (TV inputs) ${enabled ? 'enabled' : 'disabled'}. Restart Homebridge, then the Home app may need to refresh cached accessories.`,
+          'Device Updated'
+        );
+      } catch (error) {
+        console.error('Error toggling singleAccessoryWithTV:', error);
+        await window.homebridge.toast.error(`Failed to update device: ${error.message}`, 'Error');
+      }
+    }
+
+    function switchDeviceTab(index, pane) {
+      const panes = ['info', 'advanced'];
+      panes.forEach(p => {
+        const el = document.getElementById(`device-${p}-pane-${index}`);
+        if (el) el.style.display = p === pane ? '' : 'none';
+        const btn = document.getElementById(`${p}-tab-${index}`);
+        if (btn) btn.classList.toggle('active', p === pane);
+      });
+    }
+
+    function toggleDeviceDetails(index) {
+      const el = document.getElementById(`device-details-${index}`);
+      if (!el) return;
+      bootstrap.Collapse.getOrCreateInstance(el, { toggle: false }).toggle();
+    }
+
+    async function toggleUseWebSockets(index, enabled) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+        if (!devices || !devices[index]) throw new Error('Device not found');
+        if (!devices[index].deviceSettings) devices[index].deviceSettings = {};
+        devices[index].deviceSettings.useWebSockets = enabled;
+        await window.homebridge.updatePluginConfig(config);
+        await window.homebridge.toast.success(
+          `WebSockets ${enabled ? 'enabled' : 'disabled'} for this device. Restart Homebridge for changes to take effect.`,
+          'Device Updated'
+        );
+      } catch (error) {
+        await window.homebridge.toast.error(`Failed to update device: ${error.message}`, 'Error');
+      }
+    }
+
+    async function toggleUsePresetService(index, enabled) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+
+        if (!devices || !devices[index]) {
+          throw new Error('Device not found');
+        }
+
+        if (!devices[index].deviceSettings) {
+          devices[index].deviceSettings = {};
+        }
+
+        devices[index].deviceSettings.usePresetService = enabled;
+
+        await window.homebridge.updatePluginConfig(config);
+        await window.homebridge.toast.success(
+          `Preset controls ${enabled ? 'enabled' : 'disabled'} for this device. Restart Homebridge for changes to take effect.`,
+          'Device Updated'
+        );
+      } catch (error) {
+        console.error('Error toggling usePresetService:', error);
+        await window.homebridge.toast.error(`Failed to update device: ${error.message}`, 'Error');
+      }
+    }
+
+    async function toggleHyperHDREnabled(index, enabled) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+        if (!devices || !devices[index]) throw new Error('Device not found');
+        if (!devices[index].deviceSettings) devices[index].deviceSettings = {};
+        if (!devices[index].deviceSettings.hyperHDR) {
+          devices[index].deviceSettings.hyperHDR = { enabled: false, host: '', port: 8090, component: 'LEDDEVICE' };
+        }
+        devices[index].deviceSettings.hyperHDR.enabled = enabled;
+        await window.homebridge.updatePluginConfig(config);
+        await window.homebridge.toast.success(
+          `HyperHDR sync ${enabled ? 'enabled' : 'disabled'}. Restart Homebridge to apply.`, 'Device Updated'
+        );
+        renderHyperHDRSection(index, devices[index]);
+      } catch (error) {
+        await window.homebridge.toast.error(`Failed: ${error.message}`, 'Error');
+      }
+    }
+
+    async function updateHyperHDRField(index, field, value) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+        if (!devices || !devices[index]) throw new Error('Device not found');
+        if (!devices[index].deviceSettings) devices[index].deviceSettings = {};
+        if (!devices[index].deviceSettings.hyperHDR) {
+          devices[index].deviceSettings.hyperHDR = { enabled: true, host: '', port: 8090, component: 'LEDDEVICE' };
+        }
+        devices[index].deviceSettings.hyperHDR[field] = value;
+        await window.homebridge.updatePluginConfig(config);
+      } catch (error) {
+        await window.homebridge.toast.error(`Failed: ${error.message}`, 'Error');
+      }
+    }
+
+    async function renameDevice(index, currentName) {
+      const nameEl = document.getElementById(`device-name-${index}`);
+      if (!nameEl) return;
+
+      // Replace name with inline input + Save/Cancel
+      const originalHtml = nameEl.outerHTML;
+      nameEl.outerHTML = `
+        <input id="device-rename-input-${index}" type="text" class="form-control form-control-sm"
+               style="width:180px;" value="${currentName.replace(/"/g, '&quot;')}">
+        <button class="btn btn-primary btn-sm" onclick="saveDeviceRename(${index})">Save</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="cancelDeviceRename(${index}, '${currentName.replace(/'/g, "\\'")}')">Cancel</button>
+      `;
+      const input = document.getElementById(`device-rename-input-${index}`);
+      if (input) { input.focus(); input.select(); }
+    }
+
+    async function saveDeviceRename(index) {
+      const input = document.getElementById(`device-rename-input-${index}`);
+      if (!input) return;
+      const newName = input.value.trim();
+      if (!newName) return;
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+        if (!devices || !devices[index]) throw new Error('Device not found');
+        devices[index].name = newName;
+        await window.homebridge.updatePluginConfig(config);
+        await window.homebridge.toast.success(`Renamed to "${newName}". Restart Homebridge to apply.`, 'Device Updated');
+        loadConfiguredDevices();
+      } catch (error) {
+        await window.homebridge.toast.error(`Failed: ${error.message}`, 'Error');
+      }
+    }
+
+    function cancelDeviceRename(index, originalName) {
+      loadConfiguredDevices();
+    }
+
+    function renderHyperHDRSection(index, device) {
+      const section = document.getElementById(`hyperhdr-section-${index}`);
+      if (!section) return;
+      const enabled = device.deviceSettings?.hyperHDR?.enabled === true;
+      const cfg = device.deviceSettings?.hyperHDR || {};
+      section.innerHTML = `
+        <div class="advanced-subsection-header">
+          <div class="advanced-subsection-title">HyperHDR Sync</div>
+          <label class="toggle-switch" title="Sync power on/off to HyperHDR">
+            <input type="checkbox" ${enabled ? 'checked' : ''} onchange="toggleHyperHDREnabled(${index}, this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="advanced-help">When enabled, turning this device on or off will also call the HyperHDR API.</div>
+        ${enabled ? `
+        <div class="mt-2">
+          <div class="row g-2 align-items-end mb-2">
+            <div class="col">
+              <label class="form-label small mb-1">Host</label>
+              <input type="text" class="form-control form-control-sm"
+                     value="${(cfg.host || '').replace(/"/g, '&quot;')}" placeholder="192.168.1.x"
+                     onchange="updateHyperHDRField(${index}, 'host', this.value)">
+            </div>
+            <div class="col-3">
+              <label class="form-label small mb-1">Port</label>
+              <input type="number" class="form-control form-control-sm" min="1" max="65535"
+                     value="${cfg.port || 8090}"
+                     onchange="updateHyperHDRField(${index}, 'port', parseInt(this.value))">
+            </div>
+          </div>
+          <div class="row g-2 align-items-end mb-2">
+            <div class="col">
+              <label class="form-label small mb-1">Component</label>
+              <select class="form-select form-select-sm" onchange="updateHyperHDRField(${index}, 'component', this.value)">
+                <option value="LEDDEVICE" ${(cfg.component || 'LEDDEVICE') === 'LEDDEVICE' ? 'selected' : ''}>LEDDEVICE</option>
+                <option value="ALL" ${cfg.component === 'ALL' ? 'selected' : ''}>ALL</option>
+              </select>
+            </div>
+            <div class="col">
+              <label class="form-label small mb-1">Auth Token (optional)</label>
+              <input type="password" class="form-control form-control-sm"
+                     value="${(cfg.token || '').replace(/"/g, '&quot;')}" placeholder="Leave empty if not required"
+                     onchange="updateHyperHDRField(${index}, 'token', this.value)">
+            </div>
+          </div>
+          <div class="row g-2 align-items-end mb-2">
+            <div class="col">
+              <label class="form-label small mb-1">Appearance in HomeKit</label>
+              <select class="form-select form-select-sm" onchange="updateHyperHDRField(${index}, 'serviceType', this.value)">
+                <option value="Switch" ${(cfg.serviceType || 'Switch') === 'Switch' ? 'selected' : ''}>Switch</option>
+                <option value="Outlet" ${cfg.serviceType === 'Outlet' ? 'selected' : ''}>Outlet</option>
+              </select>
+            </div>
+            <div class="col">
+              <label class="form-label small mb-1">Name in HomeKit</label>
+              <input type="text" class="form-control form-control-sm"
+                     value="${(cfg.switchName || 'HyperHDR').replace(/"/g, '&quot;')}" placeholder="HyperHDR"
+                     onchange="updateHyperHDRField(${index}, 'switchName', this.value)">
+            </div>
+          </div>
+        </div>` : ''}
+      `;
+    }
+
+    async function toggleNightlightEnabled(index, enabled) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+
+        if (!devices || !devices[index]) {
+          throw new Error('Device not found');
+        }
+
+        if (!devices[index].deviceSettings) {
+          devices[index].deviceSettings = {};
+        }
+
+        if (!devices[index].deviceSettings.nightlight) {
+          devices[index].deviceSettings.nightlight = { enabled: false, timers: [] };
+        }
+
+        devices[index].deviceSettings.nightlight.enabled = enabled;
+
+        await window.homebridge.updatePluginConfig(config);
+        await window.homebridge.toast.success(
+          `Nightlight ${enabled ? 'enabled' : 'disabled'} for this device. Restart Homebridge for changes to take effect.`,
+          'Device Updated'
+        );
+
+        // Update badge in-place
+        const badge = document.getElementById(`nightlight-badge-${index}`);
+        if (badge) {
+          badge.textContent = enabled ? 'Enabled' : 'Disabled';
+          badge.className = `badge ${enabled ? 'bg-success' : 'bg-secondary'}`;
+        }
+      } catch (error) {
+        console.error('Error toggling nightlight:', error);
+        await window.homebridge.toast.error(`Failed to update device: ${error.message}`, 'Error');
+      }
+    }
+
+    function renderNightlightTimers(index, timers) {
+      const container = document.getElementById(`nightlight-timers-${index}`);
+      if (!container) return;
+      if (!timers || timers.length === 0) {
+        container.innerHTML = '<div class="nightlight-empty">No timers configured yet.</div>';
+        return;
+      }
+      container.innerHTML = timers.map((t, tIndex) => `
+        <div class="row g-2 align-items-end mb-2">
+          <div class="col">
+            <label class="form-label small mb-1">Name</label>
+            <input type="text" class="form-control form-control-sm"
+                   value="${(t.name || '').replace(/"/g, '&quot;')}" placeholder="e.g. 5 min"
+                   onchange="updateNightlightTimerName(${index}, ${tIndex}, this.value)">
+          </div>
+          <div class="col-3">
+            <label class="form-label small mb-1">Seconds</label>
+            <input type="number" class="form-control form-control-sm"
+                   min="1" value="${t.seconds || ''}" placeholder="300"
+                   onchange="updateNightlightTimerSeconds(${index}, ${tIndex}, this.value)">
+          </div>
+          <div class="col-auto">
+            <button class="btn btn-danger btn-sm" onclick="removeNightlightTimer(${index}, ${tIndex})">Remove</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function unlinkNightlight(index) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+        if (!devices || !devices[index]) throw new Error('Device not found');
+
+        const globalNightlight = config?.[0]?.manualDevicesSection?.nightlight || { enabled: false, timers: [] };
+
+        if (!devices[index].deviceSettings) devices[index].deviceSettings = {};
+        devices[index].deviceSettings.nightlight = {
+          enabled: globalNightlight.enabled === true,
+          timers: JSON.parse(JSON.stringify(globalNightlight.timers || [])),
+        };
+
+        await window.homebridge.updatePluginConfig(config);
+        await window.homebridge.toast.success('Nightlight is now customized for this device.', 'Nightlight Unlinked');
+        renderNightlightSection(index, devices[index], globalNightlight);
+      } catch (error) {
+        console.error('Error unlinking nightlight:', error);
+        await window.homebridge.toast.error(`Failed to unlink nightlight: ${error.message}`, 'Error');
+      }
+    }
+
+    async function resetNightlightToGlobal(index) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+        if (!devices || !devices[index]) throw new Error('Device not found');
+
+        const globalNightlight = config?.[0]?.manualDevicesSection?.nightlight || { enabled: false, timers: [] };
+
+        if (devices[index].deviceSettings) {
+          delete devices[index].deviceSettings.nightlight;
+        }
+
+        await window.homebridge.updatePluginConfig(config);
+        await window.homebridge.toast.success('Nightlight reset to global settings.', 'Nightlight Reset');
+        renderNightlightSection(index, devices[index], globalNightlight);
+      } catch (error) {
+        console.error('Error resetting nightlight to global:', error);
+        await window.homebridge.toast.error(`Failed to reset nightlight: ${error.message}`, 'Error');
+      }
+    }
+
+    function renderNightlightSection(index, device, globalNightlight) {
+      const section = document.getElementById(`nightlight-section-${index}`);
+      if (!section) return;
+
+      const isLinked = !device.deviceSettings?.nightlight;
+      const nightlight = isLinked
+        ? (globalNightlight || { enabled: false, timers: [] })
+        : (device.deviceSettings.nightlight || {});
+      const nightlightEnabled = nightlight.enabled === true;
+      const timers = Array.isArray(nightlight.timers) ? nightlight.timers : [];
+
+      function tHtml(t, linked, idx) {
+        if (t.length === 0) {
+          return `<div class="nightlight-empty">${linked ? 'No global timers configured.' : 'No timers configured yet.'}</div>`;
+        }
+        return t.map((timer, tIndex) => `
+          <div class="row g-2 align-items-end mb-2">
+            <div class="col">
+              <label class="form-label small mb-1">Name</label>
+              <input type="text" class="form-control form-control-sm"
+                     value="${(timer.name || '').replace(/"/g, '&quot;')}" placeholder="e.g. 5 min"
+                     ${linked ? 'disabled' : `onchange="updateNightlightTimerName(${idx}, ${tIndex}, this.value)"`}>
+            </div>
+            <div class="col-3">
+              <label class="form-label small mb-1">Seconds</label>
+              <input type="number" class="form-control form-control-sm"
+                     min="1" value="${timer.seconds || ''}" placeholder="300"
+                     ${linked ? 'disabled' : `onchange="updateNightlightTimerSeconds(${idx}, ${tIndex}, this.value)"`}>
+            </div>
+            ${linked ? '' : `
+            <div class="col-auto">
+              <button class="btn btn-danger btn-sm" onclick="removeNightlightTimer(${idx}, ${tIndex})">Remove</button>
+            </div>`}
+          </div>
+        `).join('');
+      }
+
+      section.innerHTML = isLinked ? `
+        <div class="advanced-subsection-header">
+          <div class="advanced-subsection-title">Nightlight timers</div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge ${nightlightEnabled ? 'bg-info' : 'bg-secondary'}"
+                  style="cursor:pointer;" title="Click to customize per-device"
+                  onclick="unlinkNightlight(${index})">
+              ${nightlightEnabled ? 'Inherited' : 'Disabled'}
+            </span>
+            <label class="toggle-switch" title="Nightlight (inherited from Plugin Settings)">
+              <input type="checkbox" ${nightlightEnabled ? 'checked' : ''} disabled>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="advanced-help">
+          ${nightlightEnabled ? 'Inheriting from Plugin Settings. Click the badge to customize per-device.' : 'Global nightlight is disabled. Click the badge to customize per-device.'}
+        </div>
+        ${nightlightEnabled ? `<div class="mt-2">${tHtml(timers, true, index)}</div>` : ''}
+      ` : `
+        <div class="advanced-subsection-header">
+          <div class="advanced-subsection-title">Nightlight timers</div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge ${nightlightEnabled ? 'bg-success' : 'bg-secondary'}"
+                  id="nightlight-badge-${index}">
+              ${nightlightEnabled ? 'Enabled' : 'Disabled'}
+            </span>
+            <label class="toggle-switch" title="Enable a separate Nightlight accessory with timers for this device">
+              <input type="checkbox" ${nightlightEnabled ? 'checked' : ''} onchange="toggleNightlightEnabled(${index}, this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="advanced-help">
+          Configure one Nightlight accessory per device, with multiple timers (e.g. 5 min, 40 min).
+        </div>
+        <div class="mt-2" id="nightlight-timers-${index}">
+          ${tHtml(timers, false, index)}
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-2">
+          <button class="btn btn-success btn-xs" onclick="addNightlightTimer(${index})">Add timer</button>
+          <button class="btn btn-link btn-xs p-0" style="font-size:0.75rem;" onclick="resetNightlightToGlobal(${index})">Reset to global</button>
+        </div>
+      `;
+    }
+
+    async function addNightlightTimer(index) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+
+        if (!devices || !devices[index]) throw new Error('Device not found');
+
+        if (!devices[index].deviceSettings) devices[index].deviceSettings = {};
+        if (!devices[index].deviceSettings.nightlight) {
+          devices[index].deviceSettings.nightlight = { enabled: true, timers: [] };
+        }
+
+        const timers = devices[index].deviceSettings.nightlight.timers || [];
+        timers.push({ name: '5 min', seconds: 300 });
+        devices[index].deviceSettings.nightlight.timers = timers;
+
+        await window.homebridge.updatePluginConfig(config);
+        renderNightlightTimers(index, timers);
+        await window.homebridge.toast.success(
+          'Added nightlight timer. Restart Homebridge for changes to take full effect.',
+          'Nightlight Updated'
+        );
+      } catch (error) {
+        console.error('Error adding nightlight timer:', error);
+        await window.homebridge.toast.error(`Failed to update nightlight timers: ${error.message}`, 'Error');
+      }
+    }
+
+    async function removeNightlightTimer(index, timerIndex) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+
+        if (!devices || !devices[index]) throw new Error('Device not found');
+
+        const nightlight = devices[index].deviceSettings?.nightlight;
+        if (!nightlight || !Array.isArray(nightlight.timers) || !nightlight.timers[timerIndex]) return;
+
+        nightlight.timers.splice(timerIndex, 1);
+
+        await window.homebridge.updatePluginConfig(config);
+        renderNightlightTimers(index, nightlight.timers);
+        await window.homebridge.toast.success(
+          'Removed nightlight timer. Restart Homebridge for changes to take full effect.',
+          'Nightlight Updated'
+        );
+      } catch (error) {
+        console.error('Error removing nightlight timer:', error);
+        await window.homebridge.toast.error(`Failed to update nightlight timers: ${error.message}`, 'Error');
+      }
+    }
+
+    async function updateNightlightTimerName(index, timerIndex, name) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+
+        if (!devices || !devices[index]) {
+          throw new Error('Device not found');
+        }
+
+        const nightlight = devices[index].deviceSettings?.nightlight;
+        if (!nightlight || !Array.isArray(nightlight.timers) || !nightlight.timers[timerIndex]) {
+          return;
+        }
+
+        nightlight.timers[timerIndex].name = (name || '').trim();
+
+        await window.homebridge.updatePluginConfig(config);
+      } catch (error) {
+        console.error('Error updating nightlight timer name:', error);
+      }
+    }
+
+    async function updateNightlightTimerSeconds(index, timerIndex, seconds) {
+      try {
+        const value = parseInt(seconds, 10);
+        if (!Number.isFinite(value) || value <= 0) {
+          return;
+        }
+
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+
+        if (!devices || !devices[index]) {
+          throw new Error('Device not found');
+        }
+
+        const nightlight = devices[index].deviceSettings?.nightlight;
+        if (!nightlight || !Array.isArray(nightlight.timers) || !nightlight.timers[timerIndex]) {
+          return;
+        }
+
+        nightlight.timers[timerIndex].seconds = value;
+
+        await window.homebridge.updatePluginConfig(config);
+      } catch (error) {
+        console.error('Error updating nightlight timer seconds:', error);
+      }
+    }
+
+    function openPresetsForDevice(host) {
+      // Switch to presets tab; the presets UI will handle selecting the device.
+      switchTab('presets');
+      console.log('[UI] Opening presets tab for host:', host);
+    }
+
     // Remove device from config
+    async function resetDeviceSettings(index, name) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+        if (!devices || !devices[index]) throw new Error('Device not found');
+
+        delete devices[index].deviceSettings;
+        devices[index].enabled = true;
+
+        await window.homebridge.updatePluginConfig(config);
+        await window.homebridge.toast.success(`Reset ${name} to default settings. Restart Homebridge for changes to take effect.`, 'Device Reset');
+        loadConfiguredDevices();
+      } catch (error) {
+        console.error('Error resetting device settings:', error);
+        await window.homebridge.toast.error(`Failed to reset device: ${error.message}`, 'Error');
+      }
+    }
+
     async function removeDevice(index, name, btn) {
       if (!btn.dataset.confirming) {
         btn.dataset.confirming = 'true';
@@ -784,7 +1642,18 @@
         const config = await window.homebridge.getPluginConfig();
 
         if (config && config[0]) {
-          document.getElementById('logLevel').value = config[0].logLevel || 'info';
+          const c = config[0];
+          const defaults = c.defaultSettingsSection || {};
+          const globalNightlight = c.manualDevicesSection?.nightlight || {};
+
+          document.getElementById('logLevel').value = c.logLevel || 'info';
+          document.getElementById('autoStopDiscovery').checked = c.autoStopDiscoveryWhenAllConfigured !== false;
+          document.getElementById('tvNameSuffix').value = c.tvNameSuffix || 'Presets';
+          document.getElementById('customInputLabel').value = c.customInputLabel || 'Custom';
+          document.getElementById('defaultUseWebSockets').checked = defaults.defaultUseWebSockets !== false;
+          document.getElementById('defaultUsePresetService').checked = defaults.defaultUsePresetService !== false;
+          document.getElementById('globalNightlightEnabled').checked = globalNightlight.enabled === true;
+          renderGlobalNightlightTimers(globalNightlight.timers || []);
         }
       } catch (error) {
         console.error('Error loading settings:', error);
@@ -810,15 +1679,122 @@
       }
     }
 
+    async function savePresentationSettings() {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        config[0].autoStopDiscoveryWhenAllConfigured = document.getElementById('autoStopDiscovery').checked;
+        config[0].tvNameSuffix = (document.getElementById('tvNameSuffix').value || '').trim() || 'Presets';
+        config[0].customInputLabel = (document.getElementById('customInputLabel').value || '').trim() || 'Custom';
+        await window.homebridge.updatePluginConfig(config);
+        await window.homebridge.toast.success('Settings saved. Restart Homebridge for changes to take effect.', 'Settings Saved');
+      } catch (error) {
+        console.error('Error saving presentation settings:', error);
+        await window.homebridge.toast.error(`Failed to save settings: ${error.message}`, 'Error');
+      }
+    }
+
+    async function saveDefaultSettings() {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        if (!config[0].defaultSettingsSection) config[0].defaultSettingsSection = {};
+        config[0].defaultSettingsSection.defaultUseWebSockets = document.getElementById('defaultUseWebSockets').checked;
+        config[0].defaultSettingsSection.defaultUsePresetService = document.getElementById('defaultUsePresetService').checked;
+
+        if (!config[0].manualDevicesSection) config[0].manualDevicesSection = { devices: [] };
+        if (!config[0].manualDevicesSection.nightlight) config[0].manualDevicesSection.nightlight = { enabled: false, timers: [] };
+        config[0].manualDevicesSection.nightlight.enabled = document.getElementById('globalNightlightEnabled').checked;
+
+        await window.homebridge.updatePluginConfig(config);
+        await window.homebridge.toast.success('Settings saved. Restart Homebridge for changes to take effect.', 'Settings Saved');
+      } catch (error) {
+        await window.homebridge.toast.error(`Failed to save settings: ${error.message}`, 'Error');
+      }
+    }
+
+    function renderGlobalNightlightTimers(timers) {
+      const container = document.getElementById('globalNightlightTimers');
+      if (!container) return;
+      if (!timers || timers.length === 0) {
+        container.innerHTML = '<div class="nightlight-empty">No global timers configured.</div>';
+        return;
+      }
+      container.innerHTML = timers.map((t, i) => `
+        <div class="row g-2 align-items-end mb-2">
+          <div class="col">
+            <label class="form-label small mb-1">Name</label>
+            <input type="text" class="form-control form-control-sm"
+                   value="${(t.name || '').replace(/"/g, '&quot;')}" placeholder="e.g. 5 min"
+                   onchange="updateGlobalNightlightTimer(${i}, 'name', this.value)">
+          </div>
+          <div class="col-3">
+            <label class="form-label small mb-1">Seconds</label>
+            <input type="number" class="form-control form-control-sm"
+                   min="1" value="${t.seconds || ''}" placeholder="300"
+                   onchange="updateGlobalNightlightTimer(${i}, 'seconds', this.value)">
+          </div>
+          <div class="col-auto">
+            <button class="btn btn-danger btn-sm" onclick="removeGlobalNightlightTimer(${i})">Remove</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function addGlobalNightlightTimer() {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        if (!config[0].manualDevicesSection) config[0].manualDevicesSection = { devices: [] };
+        if (!config[0].manualDevicesSection.nightlight) config[0].manualDevicesSection.nightlight = { enabled: false, timers: [] };
+        const timers = config[0].manualDevicesSection.nightlight.timers || [];
+        timers.push({ name: '5 min', seconds: 300 });
+        config[0].manualDevicesSection.nightlight.timers = timers;
+        await window.homebridge.updatePluginConfig(config);
+        renderGlobalNightlightTimers(timers);
+      } catch (error) {
+        await window.homebridge.toast.error(`Failed to add timer: ${error.message}`, 'Error');
+      }
+    }
+
+    async function removeGlobalNightlightTimer(i) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const timers = config[0].manualDevicesSection?.nightlight?.timers || [];
+        timers.splice(i, 1);
+        await window.homebridge.updatePluginConfig(config);
+        renderGlobalNightlightTimers(timers);
+      } catch (error) {
+        await window.homebridge.toast.error(`Failed to remove timer: ${error.message}`, 'Error');
+      }
+    }
+
+    async function updateGlobalNightlightTimer(i, field, value) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const timers = config[0].manualDevicesSection?.nightlight?.timers || [];
+        if (!timers[i]) return;
+        timers[i][field] = field === 'seconds' ? parseInt(value, 10) : value;
+        await window.homebridge.updatePluginConfig(config);
+      } catch (error) {
+        console.error('Error updating global nightlight timer:', error);
+      }
+    }
+
     // Start discovery
     async function startDiscovery() {
       const btn = document.getElementById('discoverBtn');
+      const stopBtn = document.getElementById('stopDiscoverBtn');
       const spinner = document.getElementById('discoveringSpinner');
       const deviceList = document.getElementById('discoveredDeviceList');
 
       btn.disabled = true;
       spinner.style.display = 'inline-block';
       isDiscovering = true;
+      discoveryStopRequested = false;
+      stopBtn.style.display = 'inline-block';
+      stopBtn.disabled = false;
+
+      // Reset per-run state so suggested names remain stable during this discovery run.
+      for (const k of Object.keys(discoveredNameEdits)) delete discoveredNameEdits[k];
+      for (const k of Object.keys(discoveredSuggestedNames)) delete discoveredSuggestedNames[k];
 
       deviceList.innerHTML = `
         <div class="no-devices">
@@ -851,6 +1827,7 @@
               btn.disabled = false;
               spinner.style.display = 'none';
               isDiscovering = false;
+              stopBtn.style.display = 'none';
             }
           } catch (pollError) {
             console.error('[UI] Polling error:', pollError);
@@ -863,6 +1840,7 @@
           btn.disabled = false;
           spinner.style.display = 'none';
           isDiscovering = false;
+          stopBtn.style.display = 'none';
         }, 75000);
 
       } catch (error) {
@@ -870,18 +1848,51 @@
         btn.disabled = false;
         spinner.style.display = 'none';
         isDiscovering = false;
+        stopBtn.style.display = 'none';
 
         deviceList.innerHTML = `
           <div class="alert alert-warning">
-            Failed to start discovery: ${error.message}
+            Failed to start discovery: ${escapeHtml(error.message)}
           </div>
         `;
+      }
+    }
+
+    async function stopDiscovery() {
+      const btn = document.getElementById('discoverBtn');
+      const stopBtn = document.getElementById('stopDiscoverBtn');
+      const spinner = document.getElementById('discoveringSpinner');
+
+      if (!isDiscovering || discoveryStopRequested) {
+        return;
+      }
+
+      discoveryStopRequested = true;
+      stopBtn.disabled = true;
+
+      try {
+        await window.homebridge.request('/stop-discovery');
+      } catch (error) {
+        console.error('[UI] stopDiscovery error:', error);
+      } finally {
+        isDiscovering = false;
+        btn.disabled = false;
+        spinner.style.display = 'none';
+        stopBtn.style.display = 'none';
       }
     }
 
     async function displayDiscoveredDevices(devices) {
       console.log('[UI] displayDiscoveredDevices called with:', devices);
       const deviceList = document.getElementById('discoveredDeviceList');
+
+      // If we re-render the list while the user is typing, the DOM nodes get recreated and
+      // the input loses focus. Capture focus + cursor position so we can restore it after render.
+      const activeEl = document.activeElement;
+      const activeId = activeEl && activeEl.id ? activeEl.id : null;
+      const shouldRestoreFocus = !!(activeId && activeId.startsWith('discovered-name-'));
+      const cursorStart = shouldRestoreFocus ? activeEl.selectionStart : null;
+      const cursorEnd = shouldRestoreFocus ? activeEl.selectionEnd : null;
 
       if (!devices || devices.length === 0) {
         console.log('[UI] No devices to display. isDiscovering:', isDiscovering);
@@ -901,6 +1912,69 @@
       // Get current config to filter out already-configured devices
       const config = await window.homebridge.getPluginConfig();
       const configuredDevices = getDevicesArray(config) || [];
+      const configuredNames = new Set((configuredDevices || []).map(d => (d?.name || '').trim()).filter(Boolean));
+
+      function titleCaseFromHost(host) {
+        let base = (host || '').trim();
+        base = base.replace(/\.$/, '').replace(/\.local$/i, '');
+        if (!base) return '';
+        if (/^\d+\.\d+\.\d+\.\d+$/.test(base)) return base;
+        return base
+          .split('-')
+          .filter(Boolean)
+          .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
+      }
+
+
+      function uniqueName(baseName) {
+        const base = (baseName || '').trim() || 'WLED';
+        if (!configuredNames.has(base)) {
+          configuredNames.add(base);
+          return base;
+        }
+        for (let i = 2; i < 100; i++) {
+          const candidate = `${base} ${i}`;
+          if (!configuredNames.has(candidate)) {
+            configuredNames.add(candidate);
+            return candidate;
+          }
+        }
+        // Fallback in pathological cases
+        const candidate = `${base} ${Date.now()}`;
+        configuredNames.add(candidate);
+        return candidate;
+      }
+
+      function suggestedNameForDevice(device) {
+        const rawName = (device?.name || '').trim();
+        const hostDerived = titleCaseFromHost(device?.host);
+        const mac = (device?.info?.macAddress || '').replace(/:/g, '').toUpperCase();
+
+        // Prefer a meaningful, non-generic device name. Many WLED devices report "WLED".
+        if (rawName && rawName.toUpperCase() !== 'WLED') {
+          // Some discovery paths can report the hostname (e.g. "wled-tv.local") as the "name".
+          // Treat those like hostnames and strip ".local" etc.
+          const rn = rawName.trim();
+          const rawLooksLikeHost = /\.local\.?\s*$/i.test(rn) || /^[a-z0-9-]+$/i.test(rn);
+          const rawSanitized = rawLooksLikeHost ? titleCaseFromHost(rawName) : rawName;
+          return uniqueName(rawSanitized);
+        }
+
+        if (hostDerived && hostDerived.toUpperCase() !== 'WLED') {
+          return uniqueName(hostDerived);
+        }
+
+        if (mac) {
+          return uniqueName(`WLED ${mac.slice(-4)}`);
+        }
+
+        if (device?.host && /^\d+\.\d+\.\d+\.\d+$/.test(device.host)) {
+          return uniqueName(`WLED ${device.host.split('.').pop()}`);
+        }
+
+        return uniqueName('WLED');
+      }
 
       // Only show devices that are not yet in the configuration
       const unconfiguredDevices = devices.filter(device =>
@@ -908,6 +1982,13 @@
       );
 
       if (unconfiguredDevices.length === 0) {
+        // If everything is configured, stop discovery early to avoid needless polling/rerenders
+        // (which can also overwrite any in-progress edits in the UI).
+        const cfg = await window.homebridge.getPluginConfig().catch(() => null);
+        const autoStop = !(cfg && cfg[0] && cfg[0].autoStopDiscoveryWhenAllConfigured === false);
+        if (isDiscovering && autoStop) {
+          await stopDiscovery();
+        }
         deviceList.innerHTML = `
           <div class="no-devices">
             <p>All discovered devices are already configured.</p>
@@ -918,15 +1999,35 @@
       }
 
       deviceList.innerHTML = unconfiguredDevices.map((device) => {
+        const host = device.host;
+
+        // Keep the suggested default stable throughout discovery, and preserve user edits.
+        if (!discoveredSuggestedNames[host]) {
+          discoveredSuggestedNames[host] = suggestedNameForDevice(device);
+        }
+        const suggestedName = discoveredSuggestedNames[host];
+        const currentName = discoveredNameEdits[host] !== undefined ? discoveredNameEdits[host] : suggestedName;
+        const inputId = discoveredNameInputId(host);
         return `
           <div class="device-card">
             <div class="device-header">
-              <div class="device-name">${device.name}</div>
+              <div class="device-name">${escapeHtml(currentName || device.name)}</div>
               <div>
                 <span class="discovery-badge badge-${device.discoveryMethod}">${device.discoveryMethod.toUpperCase()}</span>
               </div>
             </div>
             <div class="device-info">
+              <span class="device-label">Name:</span>
+              <span>
+                <input
+                  class="form-control"
+                  style="max-width: 260px;"
+                  id="${inputId}"
+                  value="${currentName.replace(/\"/g, '&quot;')}"
+                  placeholder="e.g., Living Room WLED"
+                  oninput="setDiscoveredName('${host}', this.value)"
+                />
+              </span>
               <span class="device-label">Host:</span>
               <span>${device.host}:${device.port}</span>
 
@@ -942,13 +2043,28 @@
               ` : ''}
             </div>
             <div class="device-actions">
-              <button class="btn btn-success" onclick="addDeviceToConfig('${device.host}', '${device.name}', ${device.port}, '${device.info?.version || ''}', '${device.info?.macAddress || ''}', ${device.info?.ledCount || 0})">
+              <button class="btn btn-success" onclick="addDeviceToConfig('${device.host}', (document.getElementById('${inputId}')?.value || '${suggestedName.replace(/'/g, "\\'")}'), ${device.port}, '${device.info?.version || ''}', '${device.info?.macAddress || ''}', ${device.info?.ledCount || 0})">
                 Add to Configuration
               </button>
             </div>
           </div>
         `;
       }).join('');
+
+      // Restore focus if the user was typing in a name field.
+      if (shouldRestoreFocus) {
+        const input = document.getElementById(activeId);
+        if (input && typeof input.focus === 'function') {
+          input.focus();
+          if (cursorStart !== null && cursorEnd !== null && typeof input.setSelectionRange === 'function') {
+            try {
+              input.setSelectionRange(cursorStart, cursorEnd);
+            } catch (e) {
+              // Ignore selection errors (some browsers/types can throw)
+            }
+          }
+        }
+      }
     }
 
     // Toggle device from discovery view
@@ -1030,14 +2146,17 @@
 
     async function addDeviceToConfig(host, name, port, firmwareVersion, macAddress, ledCount) {
       try {
+        name = (name || '').trim();
+
         // Get current config
         const config = await window.homebridge.getPluginConfig();
 
         console.log('Adding device - current config:', JSON.stringify(config, null, 2));
 
-        // Ensure config structure exists
+        // Ensure config structure exists — initialize if empty
         if (!config || config.length === 0) {
-          throw new Error('Plugin configuration not found');
+          config.push({ name: 'WLED', platform: 'WLED' });
+          await window.homebridge.updatePluginConfig(config);
         }
 
         // Initialize manualDevicesSection if it doesn't exist
@@ -1062,7 +2181,7 @@
 
         // Build device entry
         const deviceEntry = {
-          name: name,
+          name: name || host,
           host: host,
           port: port,
           enabled: true,
@@ -1147,7 +2266,7 @@
         console.error('[UI] Error loading presets tab:', error);
         presetContentContainer.innerHTML = `
           <div class="alert alert-warning">
-            Failed to load devices: ${error.message}
+            Failed to load devices: ${escapeHtml(error.message)}
           </div>
         `;
       }
@@ -1179,7 +2298,7 @@
       // Show loading state
       presetContentContainer.innerHTML = `
         <div class="loading-message">
-          <p>Loading presets for ${deviceName}...</p>
+          <p>Loading presets for ${escapeHtml(deviceName)}...</p>
         </div>
       `;
 
@@ -1193,7 +2312,9 @@
           throw new Error(response.message);
         }
 
-        const presets = response.presets || {};
+        const presetsRaw = response.presets || {};
+        // Never show/manage reserved preset 0 in the UI (manual/no-preset mode).
+        const presets = Object.fromEntries(Object.entries(presetsRaw).filter(([id]) => id !== '0'));
         devicePresetsCache[host] = presets;
 
         console.log(`[UI] Loaded ${Object.keys(presets).length} presets for ${deviceName}`);
@@ -1202,12 +2323,12 @@
         const config = await window.homebridge.getPluginConfig();
         let devices = getDevicesArray(config);
         const device = devices?.find(d => d.host === host);
-        const enabledPresets = device?.deviceSettings?.enabledPresets || [];
+        const enabledPresets = (device?.deviceSettings?.enabledPresets || []).filter(id => id !== '0');
 
         if (Object.keys(presets).length === 0) {
           presetContentContainer.innerHTML = `
             <div class="loading-message">
-              <p>No presets found on ${deviceName}.</p>
+              <p>No presets found on ${escapeHtml(deviceName)}.</p>
               <p>Configure presets on your WLED device first.</p>
             </div>
           `;
@@ -1242,8 +2363,8 @@
                   >
                   <label for="preset-${id}" class="preset-info" style="cursor: pointer;">
                     <div class="preset-name">
-                      ${preset.name}
-                      ${preset.quickLabel ? `<span class="preset-quick-label">${preset.quickLabel}</span>` : ''}
+                      ${escapeHtml(preset.name)}
+                      ${preset.quickLabel ? `<span class="preset-quick-label">${escapeHtml(preset.quickLabel)}</span>` : ''}
                     </div>
                     <div class="preset-id">Preset ID: ${id}</div>
                   </label>
@@ -1256,7 +2377,7 @@
         console.error('[UI] Error loading device presets:', error);
         presetContentContainer.innerHTML = `
           <div class="alert alert-warning">
-            Failed to load presets for ${deviceName}: ${error.message}
+            Failed to load presets for ${escapeHtml(deviceName)}: ${escapeHtml(error.message)}
           </div>
         `;
       }
@@ -1322,7 +2443,7 @@
           .map(cb => cb.getAttribute('data-preset-id'));
 
         // Update the enabled presets
-        devices[deviceIndex].deviceSettings.enabledPresets = enabledPresets;
+        devices[deviceIndex].deviceSettings.enabledPresets = enabledPresets.filter(id => id !== '0');
 
         // Update the count display
         updatePresetCount();
@@ -1338,6 +2459,89 @@
         console.error('[UI] Error saving preset selection:', error);
         await window.homebridge.toast.error(`Failed to save preset selection: ${error.message}`, 'Error');
       }
+    }
+
+    async function loadInlinePresets(index, host, port, deviceName) {
+      const container = document.getElementById(`inline-presets-${index}`);
+      if (!container) return;
+
+      container.innerHTML = `<p class="text-muted small mt-2">Loading presets for ${escapeHtml(deviceName)}...</p>`;
+
+      try {
+        const response = await window.homebridge.request('/get-presets', { host, port });
+        if (response.status === 'error') throw new Error(response.message);
+
+        const presetsRaw = response.presets || {};
+        const presets = Object.fromEntries(Object.entries(presetsRaw).filter(([id]) => id !== '0'));
+
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+        const device = devices?.find(d => d.host === host);
+        const enabledPresets = (device?.deviceSettings?.enabledPresets || []).filter(id => id !== '0');
+
+        if (Object.keys(presets).length === 0) {
+          container.innerHTML = `<p class="text-muted small mt-2">No presets found on this device.</p>`;
+          return;
+        }
+
+        const countId = `inline-preset-count-${index}`;
+        container.innerHTML = `
+          <div class="d-flex gap-2 align-items-center mt-2 mb-2">
+            <button class="btn btn-outline-secondary btn-sm" onclick="selectAllInlinePresets(${index}, '${host.replace(/'/g, "\\'")}')">Select All</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="deselectAllInlinePresets(${index}, '${host.replace(/'/g, "\\'")}')">Deselect All</button>
+            <span id="${countId}" class="text-muted small ms-auto">${enabledPresets.length} of ${Object.keys(presets).length} enabled</span>
+          </div>
+          <div class="preset-list">
+            ${Object.entries(presets).map(([id, preset]) => `
+              <div class="preset-item">
+                <input type="checkbox" class="preset-checkbox inline-preset-cb-${index}" id="ipreset-${index}-${id}"
+                       data-preset-id="${id}" ${enabledPresets.includes(id) ? 'checked' : ''}
+                       onchange="saveInlinePresets(${index}, '${host.replace(/'/g, "\\'")}')">
+                <label for="ipreset-${index}-${id}" class="preset-info" style="cursor:pointer;">
+                  <div class="preset-name">${(() => { const col = preset.data?.seg?.[0]?.col?.[0]; return col && (col[0]||col[1]||col[2]) ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgb(${col[0]},${col[1]},${col[2]});margin-right:5px;vertical-align:middle;flex-shrink:0;"></span>` : ''; })()}${escapeHtml(preset.name)}${preset.quickLabel ? `<span class="preset-quick-label">${escapeHtml(preset.quickLabel)}</span>` : ''}</div>
+                  <div class="preset-id">ID: ${id}</div>
+                </label>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } catch (error) {
+        container.innerHTML = `<div class="alert alert-warning mt-2">Failed to load presets: ${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    async function saveInlinePresets(index, host) {
+      try {
+        const config = await window.homebridge.getPluginConfig();
+        const devices = getDevicesArray(config);
+        const deviceIndex = devices?.findIndex(d => d.host === host);
+        if (deviceIndex === -1 || deviceIndex === undefined) return;
+
+        if (!devices[deviceIndex].deviceSettings) devices[deviceIndex].deviceSettings = {};
+
+        const enabledPresets = Array.from(document.querySelectorAll(`.inline-preset-cb-${index}:checked`))
+          .map(cb => cb.getAttribute('data-preset-id'))
+          .filter(id => id !== '0');
+
+        devices[deviceIndex].deviceSettings.enabledPresets = enabledPresets;
+        await window.homebridge.updatePluginConfig(config);
+
+        const total = document.querySelectorAll(`.inline-preset-cb-${index}`).length;
+        const countEl = document.getElementById(`inline-preset-count-${index}`);
+        if (countEl) countEl.textContent = `${enabledPresets.length} of ${total} enabled`;
+      } catch (error) {
+        await window.homebridge.toast.error(`Failed to save presets: ${error.message}`, 'Error');
+      }
+    }
+
+    function selectAllInlinePresets(index, host) {
+      document.querySelectorAll(`.inline-preset-cb-${index}`).forEach(cb => cb.checked = true);
+      saveInlinePresets(index, host);
+    }
+
+    function deselectAllInlinePresets(index, host) {
+      document.querySelectorAll(`.inline-preset-cb-${index}`).forEach(cb => cb.checked = false);
+      saveInlinePresets(index, host);
     }
 
     // Initialize when page is ready and homebridge object is available
@@ -1382,8 +2586,9 @@
 
       // Listen for real-time device updates from the server
       try {
-        window.homebridge.addEventListener('discoveredDevices', (devices) => {
-          console.log('[UI] Received discoveredDevices event:', devices);
+        window.homebridge.addEventListener('discoveredDevices', (event) => {
+          console.log('[UI] Received discoveredDevices event:', event);
+          const devices = event instanceof MessageEvent ? event.data : event;
           displayDiscoveredDevices(devices);
         });
         console.log('[UI] Event listener registered');

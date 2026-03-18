@@ -356,7 +356,7 @@ export class WLEDDiscoveryService {
         this.log.debug(`Confirmed WLED device: ${data.name} at ${host}:${port}`);
 
         const device: DiscoveredWLEDDevice = {
-          name: data.name || `WLED ${host}`,
+          name: (data.name || `WLED ${host}`).replace(/\.local$/i, ''),
           host: host,
           port: port,
           id: data.mac?.replace(/:/g, '') || `wled-${host}`,
@@ -404,7 +404,7 @@ export class WLEDDiscoveryService {
 
       // Update name if available
       if (data.name) {
-        device.name = data.name;
+        device.name = data.name.replace(/\.local$/i, '');
       }
 
       // Update the device in the map using device ID
@@ -481,7 +481,7 @@ export class WLEDDiscoveryService {
       
       // This appears to be a valid WLED device
       const device: DiscoveredWLEDDevice = {
-        name: data.name || `WLED ${host}`,
+        name: (data.name || `WLED ${host}`).replace(/\.local$/i, ''),
         host: host,
         port: port,
         id: data.mac?.replace(/:/g, '') || `wled-${host}`,

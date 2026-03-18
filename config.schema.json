@@ -57,10 +57,64 @@
           }
         }
       },
+      "autoStopDiscoveryWhenAllConfigured": {
+        "title": "Auto-stop Discovery When All Found Devices Are Configured",
+        "type": "boolean",
+        "default": true,
+        "description": "When using the Custom UI's discovery tab, automatically stop discovery once all discovered devices are already in your config."
+      },
+      "tvNameSuffix": {
+        "title": "TV Accessory Name Suffix",
+        "type": "string",
+        "default": "Presets",
+        "description": "Suffix appended to the TV/preset accessory name (when using the separate TV accessory mode)."
+      },
+      "customInputLabel": {
+        "title": "Custom Input Label",
+        "type": "string",
+        "default": "Custom",
+        "description": "Label used for the manual/no-preset input (Identifier 0) in the TV input list."
+      },
       "manualDevicesSection": {
         "title": "Manual Device Configuration",
         "type": "object",
         "properties": {
+          "nightlight": {
+            "title": "Global Nightlight Defaults",
+            "type": "object",
+            "description": "Optional default nightlight configuration applied to devices that do not define their own nightlight settings.",
+            "properties": {
+              "enabled": {
+                "title": "Enable Nightlight By Default",
+                "type": "boolean",
+                "default": false,
+                "description": "If enabled, devices without their own nightlight settings will get nightlight timer accessories using these defaults."
+              },
+              "timers": {
+                "title": "Default Nightlight Timers",
+                "type": "array",
+                "description": "List of timers available for nightlight mode. Each timer becomes a separate switch accessory control.",
+                "items": {
+                  "type": "object",
+                  "required": ["name", "seconds"],
+                  "properties": {
+                    "name": {
+                      "title": "Timer Name",
+                      "type": "string",
+                      "description": "Label for this timer, e.g. '5 min'."
+                    },
+                    "seconds": {
+                      "title": "Duration (seconds)",
+                      "type": "integer",
+                      "minimum": 1,
+                      "description": "Duration of this timer in seconds."
+                    }
+                  }
+                },
+                "default": []
+              }
+            }
+          },
           "devices": {
             "type": "array",
             "title": "Manually Configured WLED Devices",
@@ -100,11 +154,53 @@
                   "type": "object",
                   "title": "Device Settings",
                   "properties": {
+                    "nightlight": {
+                      "title": "Nightlight",
+                      "type": "object",
+                      "description": "Per-device nightlight settings. If enabled, this device gets a separate nightlight accessory with one switch per timer.",
+                      "properties": {
+                        "enabled": {
+                          "title": "Enable Nightlight",
+                          "type": "boolean",
+                          "default": false,
+                          "description": "Enable nightlight/timer accessory for this device."
+                        },
+                        "timers": {
+                          "title": "Nightlight Timers",
+                          "type": "array",
+                          "description": "List of timers available for nightlight mode. Each timer becomes a separate switch on the nightlight accessory.",
+                          "items": {
+                            "type": "object",
+                            "required": ["name", "seconds"],
+                            "properties": {
+                              "name": {
+                                "title": "Timer Name",
+                                "type": "string",
+                                "description": "Label for this timer, e.g. '5 min'."
+                              },
+                              "seconds": {
+                                "title": "Duration (seconds)",
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Duration of this timer in seconds."
+                              }
+                            }
+                          },
+                          "default": []
+                        }
+                      }
+                    },
                     "usePresetService": {
                       "title": "Add Preset Controls",
                       "description": "Create preset control accessory for this device",
                       "type": "boolean",
                       "default": true
+                    },
+                    "singleAccessoryWithTV": {
+                      "title": "Single Accessory (TV Inputs)",
+                      "description": "Expose Light + Presets (TV input selector) as a single HomeKit accessory. Requires Homebridge restart and may require removing/re-adding accessories in the Home app due to HomeKit caching.",
+                      "type": "boolean",
+                      "default": false
                     },
                     "useWebSockets": {
                       "title": "Use WebSockets",
@@ -120,6 +216,31 @@
                         "type": "string"
                       },
                       "default": []
+                    },
+                    "hyperHDR": {
+                      "title": "HyperHDR Integration",
+                      "type": "object",
+                      "properties": {
+                        "enabled": { "title": "Enable HyperHDR Sync", "type": "boolean", "default": false },
+                        "host": { "title": "HyperHDR Host", "type": "string", "format": "hostname" },
+                        "port": { "title": "Port", "type": "integer", "default": 8090, "minimum": 1, "maximum": 65535 },
+                        "component": {
+                          "title": "Component", "type": "string", "default": "LEDDEVICE",
+                          "oneOf": [
+                            { "title": "LED Device (LEDDEVICE)", "enum": ["LEDDEVICE"] },
+                            { "title": "All (ALL)", "enum": ["ALL"] }
+                          ]
+                        },
+                        "token": { "title": "Auth Token (optional)", "type": "string" },
+                        "serviceType": {
+                          "title": "HomeKit Service Type", "type": "string", "default": "Switch",
+                          "oneOf": [
+                            { "title": "Switch", "enum": ["Switch"] },
+                            { "title": "Outlet", "enum": ["Outlet"] }
+                          ]
+                        },
+                        "switchName": { "title": "Name in HomeKit", "type": "string" }
+                      }
                     }
                   }
                 }

@@ -26,8 +26,8 @@ If auto-discovery doesn't find your devices, you can add them manually:
 
 ```json
 {
-  "name": "WLED",
-  "platform": "WLED",
+  "name": "Simpler WLED",
+  "platform": "Simpler WLED",
   "discoverySection": {
     "autoDiscover": true
   },

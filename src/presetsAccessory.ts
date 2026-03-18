@@ -36,7 +36,7 @@ export class WLEDPresetsAccessory {
       this.accessory.addService(this.platform.Service.Television);
 
     this.presetsService
-      .setCharacteristic(this.platform.Characteristic.ConfiguredName, accessory.context.device.name)
+      .setCharacteristic(this.platform.Characteristic.ConfiguredName, `${accessory.context.device.name} ${this.platform.getTvNameSuffix()}`)
       .setCharacteristic(this.platform.Characteristic.SleepDiscoveryMode,
         this.platform.Characteristic.SleepDiscoveryMode.ALWAYS_DISCOVERABLE);
 
@@ -85,37 +85,60 @@ export class WLEDPresetsAccessory {
     }
     this.inputServices = [];
 
+    // Always expose a "Custom" input (Identifier 0) to represent manual/no-preset mode.
+    // This lets users switch out of presets without touching the color slider.
+    this.presetInputMap.set(0, 0);
+    this.inputPresetMap.set(0, 0);
+
+    const customSubtype = 'preset-0-custom';
+    const customLabel = this.platform.getCustomInputLabel();
+    const customInputService = this.accessory.getServiceById(this.platform.Service.InputSource, customSubtype) ||
+      this.accessory.addService(this.platform.Service.InputSource, customLabel, customSubtype);
+
+    customInputService
+      .setCharacteristic(this.platform.Characteristic.Identifier, 0)
+      .setCharacteristic(this.platform.Characteristic.ConfiguredName, customLabel)
+      .setCharacteristic(this.platform.Characteristic.IsConfigured, this.platform.Characteristic.IsConfigured.CONFIGURED)
+      .setCharacteristic(this.platform.Characteristic.InputSourceType, this.platform.Characteristic.InputSourceType.HDMI);
+
+    customInputService.subtype = customSubtype;
+    this.presetsService.addLinkedService(customInputService);
+    this.inputServices.push(customInputService);
+
     let enabledPresets: string[] = [];
 
     if (this.accessory.context.device?.deviceSettings?.enabledPresets) {
       enabledPresets = this.accessory.context.device.deviceSettings.enabledPresets;
-      this.platform.log.info(`[DEBUG] Loaded enabledPresets from context: ${JSON.stringify(enabledPresets)}`);
+      this.platform.log.debug(`[Presets] Loaded enabledPresets from context for ${this.accessory.displayName}: ${JSON.stringify(enabledPresets)}`);
     } else {
       const devices = this.platform.config.manualDevicesSection?.devices || this.platform.config.devices || [];
       const deviceHost = this.accessory.context.device?.host;
-      this.platform.log.info(`[DEBUG] Looking up device by host: ${deviceHost} in ${devices.length} devices`);
+      this.platform.log.debug(`[Presets] Looking up device by host: ${deviceHost} in ${devices.length} devices`);
       const configuredDevice = devices.find((d: any) => d.host === deviceHost);
       if (configuredDevice?.deviceSettings?.enabledPresets) {
         enabledPresets = configuredDevice.deviceSettings.enabledPresets;
-        this.platform.log.info(`[DEBUG] Loaded enabledPresets from platform config: ${JSON.stringify(enabledPresets)}`);
+        this.platform.log.debug(`[Presets] Loaded enabledPresets from platform config for ${this.accessory.displayName}: ${JSON.stringify(enabledPresets)}`);
       } else {
-        this.platform.log.info(`[DEBUG] No enabledPresets found in platform config for ${deviceHost}`);
+        this.platform.log.debug(`[Presets] No enabledPresets found in platform config for ${deviceHost}`);
       }
     }
 
     const filterByEnabled = enabledPresets.length > 0;
 
-    this.platform.log.info(`[DEBUG] Enabled presets for ${this.accessory.displayName}: ${JSON.stringify(enabledPresets)}`);
-    this.platform.log.info(`[DEBUG] Filter by enabled: ${filterByEnabled}`);
+    this.platform.log.debug(`[Presets] Enabled presets for ${this.accessory.displayName}: ${JSON.stringify(enabledPresets)} (filterByEnabled=${filterByEnabled})`);
 
     for (const [presetIdStr, preset] of Object.entries(presets)) {
-      this.platform.log.info(`[DEBUG] Processing preset - presetIdStr: "${presetIdStr}"`);
-
       const presetId = parseInt(presetIdStr, 10);
-      this.platform.log.info(`[DEBUG] Parsed presetId: ${presetId} (isNaN: ${isNaN(presetId)})`);
+      this.platform.log.debug(`[Presets] Processing preset "${presetIdStr}" (parsed=${presetId}, isNaN=${isNaN(presetId)})`);
 
       if (isNaN(presetId)) {
-        this.platform.log.warn(`[DEBUG] Skipping preset with non-numeric ID: "${presetIdStr}"`);
+        this.platform.log.warn(`[Presets] Skipping preset with non-numeric ID: "${presetIdStr}"`);
+        continue;
+      }
+
+      // Preset 0 is reserved for manual/no-preset mode and is exposed as "Custom" above.
+      if (presetId === 0) {
+        this.platform.log.debug('Skipping preset 0 from WLED preset list (exposed separately as Custom)');
         continue;
       }
 
@@ -124,20 +147,23 @@ export class WLEDPresetsAccessory {
         continue;
       }
 
-      this.platform.log.info(`[DEBUG] Preset data.n: "${preset.data?.n}", data.ql: "${preset.data?.ql}"`);
+      this.platform.log.debug(`[Presets] Preset ${presetId} metadata - n="${preset.data?.n}", ql="${preset.data?.ql}"`);
 
       this.presetInputMap.set(presetId, presetId);
       this.inputPresetMap.set(presetId, presetId);
 
       const serviceName = `Preset ${presetId}`;
+      const subtype = `preset-${presetId}`;
       const n = preset.data?.n || `Preset ${presetId}`;
       const ql = preset.data?.ql || '';
       const label = (ql ? `${ql} ` : '') + `${n}`;
 
-      this.platform.log.info(`[DEBUG] Creating preset - ID: ${presetId}, serviceName: "${serviceName}", label: "${label}" (ql: "${ql}", n: "${n}"`);
+      this.platform.log.debug(`[Presets] Creating preset input - id=${presetId}, serviceName="${serviceName}", label="${label}" (ql="${ql}", n="${n}")`);
 
-      const inputService = this.accessory.getService(serviceName) ||
-        this.accessory.addService(this.platform.Service.InputSource, label, label);
+      // IMPORTANT: InputSource services must have a stable subtype; otherwise HomeKit/TV inputs
+      // can drift or duplicate when the preset label changes.
+      const inputService = this.accessory.getServiceById(this.platform.Service.InputSource, subtype) ||
+        this.accessory.addService(this.platform.Service.InputSource, serviceName, subtype);
 
       inputService
         .setCharacteristic(this.platform.Characteristic.Identifier, presetId)
@@ -146,7 +172,7 @@ export class WLEDPresetsAccessory {
         .setCharacteristic(this.platform.Characteristic.InputSourceType,
           this.platform.Characteristic.InputSourceType.HDMI);
 
-      inputService.subtype = serviceName;
+      inputService.subtype = subtype;
 
       this.presetsService.addLinkedService(inputService);
       this.inputServices.push(inputService);
@@ -160,7 +186,14 @@ export class WLEDPresetsAccessory {
       })
       .onSet(async (value: CharacteristicValue) => {
         const presetId = value as number;
-        this.platform.log.info(`[DEBUG] ActiveIdentifier set to: ${presetId}`);
+        this.platform.log.debug(`[Presets] ActiveIdentifier set to: ${presetId} for ${this.accessory.displayName}`);
+        if (presetId === 0) {
+          // Allow clearing preset even though preset 0 is not exposed as an input source.
+          this.currentActiveInput = 0;
+          await this.wledDevice.activatePreset(0);
+          return;
+        }
+
         if (this.presetInputMap.has(presetId)) {
           this.currentActiveInput = presetId;
           await this.wledDevice.activatePreset(presetId);

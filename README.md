@@ -15,16 +15,15 @@ A Homebridge plugin for controlling WLED-powered LED strips through HomeKit.
 ## Features
 
 - Control WLED devices through HomeKit
-- On/Off control
-- Brightness control
-- Color (RGB/HSV) control
-- Support for WLED segments as individual accessories
-- Integrated preset selector for easy access to saved presets
-- Individual switch controls for each WLED preset
-- **Interactive Discovery UI** - Scan your network for WLED devices and add them with one click
+- On/Off, Brightness, Color (RGB/HSV), and Color Temperature (CCT) control
+- Integrated preset selector (TV-style input selector) for easy access to saved WLED presets
+- **Nightlight timers** — per-device timer switches that activate WLED's built-in nightlight fade-off
+- **HyperHDR integration** — sync power on/off and brightness to a HyperHDR instance, exposed as a Switch or Outlet accessory
+- **Interactive Discovery UI** — scan your network for WLED devices and add them with one click
+- Single-accessory mode: Light + Preset selector in one HomeKit accessory
 - Manual configuration for advanced setups
-- Real-time updates via WebSockets for responsive control
-- Fallback to polling for backwards compatibility
+- Real-time updates via WebSockets (with exponential-backoff reconnection)
+- Fallback to HTTP polling for older firmware
 
 ## Installation
 
@@ -72,8 +71,8 @@ The simplest configuration - just add devices manually:
 
 ```json
 {
-  "platform": "WLED",
-  "name": "WLED",
+  "platform": "Simpler WLED",
+  "name": "Simpler WLED",
   "manualDevicesSection": {
     "devices": [
       {
@@ -94,14 +93,21 @@ Complete configuration showing all available options:
   "platform": "Simpler WLED",
   "name": "Simpler WLED",
   "logLevel": "info",
-  "defaultPollInterval": 10,
+  "tvNameSuffix": "Presets",
+  "customInputLabel": "Custom",
+  "autoStopDiscoveryWhenAllConfigured": true,
   "defaultSettingsSection": {
-    "defaultUseSegments": false,
     "defaultUsePresetService": true,
-    "defaultUseWebSockets": true,
-    "defaultPollInterval": 10
+    "defaultUseWebSockets": true
   },
   "manualDevicesSection": {
+    "nightlight": {
+      "enabled": false,
+      "timers": [
+        { "name": "15 min", "seconds": 900 },
+        { "name": "30 min", "seconds": 1800 }
+      ]
+    },
     "devices": [
       {
         "name": "Living Room LEDs",
@@ -109,19 +115,26 @@ Complete configuration showing all available options:
         "port": 80,
         "enabled": true,
         "deviceSettings": {
-          "useSegments": false,
           "usePresetService": true,
+          "singleAccessoryWithTV": false,
           "useWebSockets": true,
-          "pollInterval": 10,
-          "enabledPresets": ["1", "2", "3"]
-        }
-      },
-      {
-        "name": "Bedroom LEDs",
-        "host": "wled-bedroom.local",
-        "deviceSettings": {
-          "useSegments": true,
-          "usePresetService": true
+          "enabledPresets": ["1", "2", "3"],
+          "nightlight": {
+            "enabled": true,
+            "timers": [
+              { "name": "15 min", "seconds": 900 },
+              { "name": "30 min", "seconds": 1800 }
+            ]
+          },
+          "hyperHDR": {
+            "enabled": true,
+            "host": "192.168.1.11",
+            "port": 8090,
+            "component": "LEDDEVICE",
+            "token": "",
+            "serviceType": "Switch",
+            "switchName": "HyperHDR"
+          }
         }
       }
     ]
@@ -135,10 +148,12 @@ These settings apply to the entire platform:
 
 | Property | Type | Description | Default | Required |
 |----------|------|-------------|---------|----------|
-| `platform` | string | Must be `"WLED"` | - | **Yes** |
-| `name` | string | Name of the platform in HomeKit | `"WLED"` | **Yes** |
+| `platform` | string | Must be `"Simpler WLED"` | - | **Yes** |
+| `name` | string | Name of the platform in Homebridge | `"Simpler WLED"` | **Yes** |
 | `logLevel` | string | Logging level: `"error"`, `"warn"`, `"info"`, or `"debug"` | `"info"` | No |
-| `defaultPollInterval` | integer | Global default polling interval (seconds) when WebSockets unavailable | `10` | No |
+| `autoStopDiscoveryWhenAllConfigured` | boolean | In the Custom UI Discovery tab, automatically stop discovery once all discovered devices are already configured | `true` | No |
+| `tvNameSuffix` | string | Suffix appended to the TV/preset accessory name | `"Presets"` | No |
+| `customInputLabel` | string | Label shown for the manual/no-preset input (Identifier `0`) in the TV input list | `"Custom"` | No |
 
 ### Default Settings Section
 
@@ -146,10 +161,8 @@ Settings in `defaultSettingsSection` apply to devices added through the Discover
 
 | Property | Type | Description | Default | Required |
 |----------|------|-------------|---------|----------|
-| `defaultUseSegments` | boolean | Expose LED segments for discovered devices | `false` | No |
 | `defaultUsePresetService` | boolean | Add preset controls for discovered devices | `true` | No |
 | `defaultUseWebSockets` | boolean | Use WebSockets for discovered devices | `true` | No |
-| `defaultPollInterval` | integer | Polling interval for discovered devices (seconds) | `10` | No |
 
 ### Manual Device Configuration
 
@@ -168,34 +181,79 @@ Settings in `deviceSettings` object control individual device behavior:
 
 | Property | Type | Description | Default | Required |
 |----------|------|-------------|---------|----------|
-| `useSegments` | boolean | Expose each LED segment as a separate accessory | `false` | No |
 | `usePresetService` | boolean | Add preset selector controls | `true` | No |
+| `singleAccessoryWithTV` | boolean | Expose Light + Presets as a single HomeKit accessory. Requires restart; HomeKit may cache old accessories | `false` | No |
 | `useWebSockets` | boolean | Use WebSockets for real-time updates (requires WLED v0.13+) | `true` | No |
-| `pollInterval` | integer | How often to poll for state updates (seconds) | `10` | No |
-| `enabledPresets` | array | Array of preset IDs to expose (e.g., `["1", "2", "3"]`). Configure via UI. | `[]` | No |
+| `enabledPresets` | array | Array of preset IDs to expose (e.g., `["1", "2", "3"]`). Leave empty to show all. Configure via UI. | `[]` | No |
+| `nightlight` | object | Per-device nightlight timer settings — see [Nightlight Timers](#nightlight-timers) | - | No |
+| `hyperHDR` | object | HyperHDR sync settings — see [HyperHDR Integration](#hyperhdr-integration) | - | No |
 
 ## Feature Details
 
-### LED Segments
+### Color Temperature (CCT)
 
-WLED allows you to divide your LED strip into multiple segments that can be controlled individually. When you set `useSegments` to `true` in your device settings, each segment will appear as a separate light accessory in HomeKit.
+The plugin exposes a Color Temperature characteristic (153–500 Mireds) in HomeKit alongside the standard RGB color controls. This maps to WLED's segment CCT value, letting you shift between warm and cool white directly from the Home app or Siri.
 
-**Configuration:**
+WLED must have a white channel or CCT-capable LEDs configured for this to have a visible effect on the hardware.
+
+### Nightlight Timers
+
+Nightlight timers create one Switch accessory per timer that activates WLED's built-in nightlight fade-off. When you turn the switch on, WLED starts a countdown and gradually dims to off.
+
+Timers can be configured globally (under `manualDevicesSection.nightlight`) as defaults for all devices, or per-device (under `deviceSettings.nightlight`). Per-device settings take precedence.
+
 ```json
 {
   "deviceSettings": {
-    "useSegments": true
+    "nightlight": {
+      "enabled": true,
+      "timers": [
+        { "name": "15 min", "seconds": 900 },
+        { "name": "30 min", "seconds": 1800 },
+        { "name": "1 hour", "seconds": 3600 }
+      ]
+    }
   }
 }
 ```
 
-**Use cases:**
-- LED strips that wrap around different areas of a room
-- Creating different lighting zones
-- Complex multi-segment lighting setups
-- Independent control of each segment's color and brightness
+Each timer appears as a separate Switch in HomeKit named `<device name> <timer name>`.
 
-**Note:** Segments must be configured in your WLED device first. The plugin will automatically detect and expose all configured segments.
+### HyperHDR Integration
+
+When enabled, the plugin mirrors WLED's power state and brightness to a [HyperHDR](https://github.com/awawa-dev/HyperHDR) instance via its JSON-RPC API. This is useful when WLED LEDs are also driven by HyperHDR and you want a single HomeKit toggle to control both.
+
+A dedicated Switch (or Outlet) accessory named "HyperHDR" (configurable) is added inside the same accessory group, letting you toggle HyperHDR independently from HomeKit as well.
+
+**Configuration:**
+
+```json
+{
+  "deviceSettings": {
+    "hyperHDR": {
+      "enabled": true,
+      "host": "192.168.1.11",
+      "port": 8090,
+      "component": "LEDDEVICE",
+      "token": "",
+      "serviceType": "Switch",
+      "switchName": "HyperHDR"
+    }
+  }
+}
+```
+
+| Property | Type | Description | Default |
+|----------|------|-------------|---------|
+| `enabled` | boolean | Enable HyperHDR sync | `false` |
+| `host` | string | IP address or hostname of the HyperHDR instance | - |
+| `port` | integer | HyperHDR JSON-RPC port | `8090` |
+| `component` | string | Component to toggle: `"LEDDEVICE"` or `"ALL"` | `"LEDDEVICE"` |
+| `token` | string | Auth token (leave empty if not required) | - |
+| `serviceType` | string | HomeKit service type: `"Switch"` or `"Outlet"` | `"Switch"` |
+| `switchName` | string | Name shown in HomeKit for the HyperHDR accessory | `"HyperHDR"` |
+
+HyperHDR errors are logged as warnings and never block WLED operation.
 
 ### Preset Controls
 
@@ -204,9 +262,14 @@ By default, this plugin creates preset controls for each WLED device, allowing y
 **Features:**
 - Preset selector appears as an input source selector in HomeKit (similar to TV inputs)
 - Each WLED preset appears as a selectable input
+- Includes a manual/no-preset input (Identifier `0`) labeled `Custom` (configurable via `customInputLabel`)
 - Easily switch presets through the Home app, Control Center, or Siri
 - Presets are automatically synchronized from your WLED device
 - Option to filter which presets are shown using the `enabledPresets` array
+- When you change color from the Light accessory, any active preset is cleared (switches back to manual color, `ps=0`, `fx=0`)
+
+**Single Accessory Mode (Optional):**
+If `deviceSettings.singleAccessoryWithTV` is enabled, the Light + TV input selector are exposed under a single HomeKit accessory. You may need to remove cached accessories in the Home app after enabling/disabling this due to HomeKit caching.
 
 **Configuration - Show All Presets:**
 ```json
@@ -343,30 +406,12 @@ For devices that can't be discovered automatically, or if you prefer explicit co
 - Restart Homebridge to refresh preset list
 - Check that presets have names in WLED (unnamed presets may not appear correctly)
 
-### Segments Not Appearing
-
-**Problem:** LED segments configured in WLED don't show up as separate accessories
-
-**Solutions:**
-- Enable segments in device configuration:
-  ```json
-  { "deviceSettings": { "useSegments": true } }
-  ```
-- Verify segments are properly configured in your WLED device
-- Restart Homebridge after enabling segments
-- Check Homebridge logs for any errors
-
 ### Performance Issues
 
 **Problem:** Homebridge running slowly or consuming excessive resources
 
 **Solutions:**
-- If you have many WLED devices or segments, increase the `pollInterval` to reduce network traffic:
-  ```json
-  { "defaultPollInterval": 30 }
-  ```
 - Enable WebSockets instead of polling when possible (reduces overhead)
-- Disable segments if you don't need individual segment control
 - Limit the number of enabled presets using `enabledPresets` array
 
 ### Plugin Not Appearing in Config UI X
@@ -386,7 +431,7 @@ Enable debug logging to troubleshoot issues:
 
 ```json
 {
-  "platform": "WLED",
+  "platform": "Simpler WLED",
   "logLevel": "debug"
 }
 ```
@@ -439,8 +484,12 @@ Then check Homebridge logs for detailed information about plugin operations.
 
 - `src/` - TypeScript source files
   - `platform.ts` - Main platform implementation
-  - `platformAccessory.ts` - Accessory handler
-  - `wledDevice.ts` - WLED device communication
+  - `platformAccessory.ts` - Light-only accessory (Lightbulb service)
+  - `combinedAccessory.ts` - Single-accessory mode (Lightbulb + TV/presets)
+  - `presetsAccessory.ts` - Standalone preset selector (TV service)
+  - `nightlightAccessory.ts` - Nightlight timer switches
+  - `wledDevice.ts` - WLED device communication (HTTP + WebSocket)
+  - `hyperHDRClient.ts` - HyperHDR JSON-RPC client
   - `discoveryService.ts` - mDNS and SSDP discovery
   - `settings.ts` - Plugin constants
 - `homebridge-ui/` - Custom UI for Homebridge Config UI X

@@ -39,6 +39,11 @@ export interface WLEDInfo {
   ledCount: number;
 }
 
+export interface WLEDNightlightState {
+  active: boolean;
+  durationMinutes?: number;
+}
+
 export class WLEDDevice {
   private readonly baseUrl: string;
   private readonly wsUrl: string;
@@ -47,7 +52,6 @@ export class WLEDDevice {
   private reconnectTimer?: NodeJS.Timeout;
   private pingTimer?: NodeJS.Timeout;
   private reconnectAttempts = 0;
-  private readonly maxReconnectAttempts = 10;
   private readonly reconnectInterval = 5000; // 5 seconds
   private readonly pingInterval = 30000; // 30 seconds
   private state: WLEDState = {
@@ -57,7 +61,7 @@ export class WLEDDevice {
     color: { r: 0, g: 0, b: 0 },
     hue: 0,
     saturation: 0,
-    colorTemperature: 140, // Middle of range
+    colorTemperature: 370, // ~2700K warm white default
     effect: 0,
     presetId: 0,
   };
@@ -65,6 +69,7 @@ export class WLEDDevice {
   private segments: WLEDSegment[] = [];
   private info?: WLEDInfo;
   private isConnected = false;
+  private nightlightState: WLEDNightlightState = { active: false };
 
   constructor(
     private readonly log: Logger,
@@ -203,26 +208,18 @@ export class WLEDDevice {
    * Schedule a reconnection attempt
    */
   private scheduleReconnect(): void {
-    // Clear any existing reconnect timer
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
     }
-    
-    // Only attempt to reconnect if we haven't exceeded the maximum attempts
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      
-      const delay = this.reconnectInterval * Math.min(this.reconnectAttempts, 5);
-      this.log.debug(`Scheduling WebSocket reconnection in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-      
-      this.reconnectTimer = setTimeout(() => {
-        this.connectWebSocket();
-      }, delay);
-    } else {
-      this.log.error(`Failed to reconnect after ${this.maxReconnectAttempts} attempts, falling back to polling`);
-      // Fall back to polling if we can't establish a WebSocket connection
-      this.startPolling();
-    }
+
+    this.reconnectAttempts++;
+    // Exponential backoff: 5s, 10s, 20s, 40s, 60s max
+    const delay = Math.min(5000 * Math.pow(2, Math.min(this.reconnectAttempts - 1, 4)), 60000);
+    this.log.debug(`Scheduling WebSocket reconnection in ${delay / 1000}s (attempt ${this.reconnectAttempts})`);
+
+    this.reconnectTimer = setTimeout(() => {
+      this.connectWebSocket();
+    }, delay);
   }
   
   /**
@@ -233,7 +230,7 @@ export class WLEDDevice {
     const message = data.toString();
 
     try {
-      this.log.info(`WebSocket RX: ${message}`);
+      this.log.debug(`WebSocket RX: ${message}`);
 
       // Parse the JSON message
       const jsonData = JSON.parse(message);
@@ -327,9 +324,13 @@ export class WLEDDevice {
   private updateStateFromData(data: any): void {
     try {
       // Parse the state response
+      const nextBrightness = data.bri !== undefined
+        ? Math.round((data.bri / 255) * 100)
+        : this.state.brightness;
+
       this.state = {
         on: data.on === true,
-        brightness: data.bri !== undefined ? Math.round((data.bri / 255) * 100) : 0,
+        brightness: nextBrightness,
         colorMode: 'rgb', // Default, will be updated based on data
         color: {
           r: data.seg?.[0]?.col?.[0]?.[0] || 0,
@@ -338,10 +339,19 @@ export class WLEDDevice {
         },
         hue: 0, // Will be calculated from RGB
         saturation: 0, // Will be calculated from RGB
-        colorTemperature: 140, // Default middle value
+        colorTemperature: this.state.colorTemperature, // Will be updated from CCT data
         effect: data.seg?.[0]?.fx || 0,
-        presetId: data.ps || -1,
+        // WLED can report ps=0; don't treat it as "missing" (0 is a valid value for our logic).
+        presetId: data.ps ?? -1,
       };
+
+      // Nightlight state (if present)
+      if (typeof data.nl === 'object' && data.nl !== null) {
+        this.nightlightState = {
+          active: data.nl.on === true,
+          durationMinutes: typeof data.nl.dur === 'number' ? data.nl.dur : undefined,
+        };
+      }
 
       // Update active preset ID if present in the response
       if (data.ps !== undefined) {
@@ -357,6 +367,15 @@ export class WLEDDevice {
       );
       this.state.hue = h;
       this.state.saturation = s;
+
+      // Parse CCT if reported by WLED (0=cold/6500K, 255=warm/2000K)
+      const cct = data.seg?.[0]?.cct;
+      if (cct !== undefined && cct !== null) {
+        this.state.colorTemperature = Math.max(153, Math.min(500, Math.round(153 + (cct / 255) * (500 - 153))));
+        this.state.colorMode = 'ct';
+      } else {
+        this.state.colorMode = 'rgb';
+      }
 
       // Update segment info if available
       this.updateSegmentsFromData(data);
@@ -513,7 +532,16 @@ export class WLEDDevice {
    * Get the current state
    */
   public getState(): WLEDState {
-    return { ...this.state };
+    return {
+      ...this.state,
+      color: { ...this.state.color },
+      segmentState: this.state.segmentState
+        ? this.state.segmentState.map(segment => ({
+          ...segment,
+          color: { ...segment.color },
+        }))
+        : undefined,
+    };
   }
 
   /**
@@ -554,13 +582,78 @@ export class WLEDDevice {
   }
 
   /**
+   * Get current nightlight state (best-effort)
+   */
+  public getNightlightState(): WLEDNightlightState {
+    return { ...this.nightlightState };
+  }
+
+  /**
+   * Start nightlight with the given duration in seconds.
+   * WLED expects duration in minutes, so we convert here.
+   */
+  public async startNightlight(durationSeconds: number): Promise<void> {
+    try {
+      const durationMinutes = Math.max(1, Math.round(durationSeconds / 60));
+      const payload = {
+        nl: {
+          on: true,
+          dur: durationMinutes,
+        },
+      };
+
+      if (this.useWebSockets && this.isConnected) {
+        this.sendWebSocketUpdate(payload);
+      } else {
+        await axios.post(`${this.baseUrl}/state`, payload);
+      }
+
+      this.nightlightState = {
+        active: true,
+        durationMinutes,
+      };
+      this.notifyListeners();
+    } catch (error) {
+      this.log.error('Failed to start nightlight:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Stop any running nightlight.
+   */
+  public async stopNightlight(): Promise<void> {
+    try {
+      const payload = {
+        nl: {
+          on: false,
+        },
+      };
+
+      if (this.useWebSockets && this.isConnected) {
+        this.sendWebSocketUpdate(payload);
+      } else {
+        await axios.post(`${this.baseUrl}/state`, payload);
+      }
+
+      this.nightlightState = {
+        active: false,
+      };
+      this.notifyListeners();
+    } catch (error) {
+      this.log.error('Failed to stop nightlight:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Send a state update via the WebSocket connection
    */
   private sendWebSocketUpdate(payload: any): void {
     if (this.webSocket && this.webSocket.readyState === WebSocket.OPEN) {
       try {
         const message = JSON.stringify(payload);
-        this.log.info(`WebSocket TX: ${message}`);
+        this.log.debug(`WebSocket TX: ${message}`);
         this.webSocket.send(message);
         return; // Success - no need to continue
       } catch (error) {
@@ -697,12 +790,24 @@ export class WLEDDevice {
    */
   public async setColor(r: number, g: number, b: number): Promise<void> {
     try {
-      const payload = {
+      const payload: any = {
         seg: {
           id: 0,
           col: [[r, g, b]],
         },
       };
+
+      // If a preset is currently active (>0), moving the color slider should switch back to
+      // manual color mode: clear the preset and disable any running effect (fx=0).
+      if (this.activePresetId > 0) {
+        payload.ps = 0;
+        payload.seg.fx = 0;
+
+        // Update local state immediately for responsiveness
+        this.activePresetId = 0;
+        this.state.presetId = 0;
+        this.state.effect = 0;
+      }
       
       // If WebSockets are enabled and connected, use that
       if (this.useWebSockets && this.isConnected) {
@@ -773,6 +878,40 @@ export class WLEDDevice {
       this.log.error('Failed to set HSV color:', error);
       throw error;
     }
+  }
+
+  /**
+   * Set color temperature in Mireds (153-500)
+   */
+  public async setColorTemperature(mireds: number): Promise<void> {
+    try {
+      const clamped = Math.max(153, Math.min(500, mireds));
+      // Convert HomeKit Mireds (153=cool, 500=warm) to WLED CCT (0=cool, 255=warm)
+      const cct = Math.round((clamped - 153) / (500 - 153) * 255);
+      const payload = { seg: [{ id: 0, cct }] };
+
+      if (this.useWebSockets && this.isConnected) {
+        this.sendWebSocketUpdate(payload);
+      } else {
+        await axios.post(`${this.baseUrl}/state`, payload);
+      }
+
+      this.state.colorTemperature = clamped;
+      this.state.colorMode = 'ct';
+      this.notifyListeners();
+    } catch (error) {
+      this.log.error('Failed to set color temperature:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Force an immediate HTTP state refresh (useful on startup)
+   */
+  public refreshState(): void {
+    this.updateStateViaHTTP().catch(error => {
+      this.log.debug('Error refreshing WLED state:', error);
+    });
   }
 
   /**

@@ -272,6 +272,12 @@ class PluginUiServer extends HomebridgePluginUiServer {
       const presets: Record<string, { id: string; name: string; quickLabel?: string }> = {};
 
       for (const [id, data] of Object.entries(rawPresets)) {
+        // Preset 0 is reserved by WLED/this plugin as "no preset / manual mode".
+        // Some devices may expose an empty "0" entry; never show/manage it in the UI.
+        if (id === '0') {
+          continue;
+        }
+
         if (typeof data === 'object' && data !== null) {
           // Extract name (n) and quick label (ql) for the preset
           const n = ('n' in data && typeof data.n === 'string') ? data.n : `Preset ${id}`;

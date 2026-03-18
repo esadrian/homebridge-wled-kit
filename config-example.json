@@ -8,11 +8,14 @@
   "description": "Example configuration for homebridge-simpler-wled",
   "platforms": [
     {
-      "name": "WLED",
-      "platform": "WLED",
+      "name": "Simpler WLED",
+      "platform": "Simpler WLED",
       "discoverySection": {
         "autoDiscover": true
       },
+      "autoStopDiscoveryWhenAllConfigured": true,
+      "tvNameSuffix": "Presets",
+      "customInputLabel": "Custom",
       "defaultSettingsSection": {
         "defaultUseSegments": false,
         "defaultUsePresetService": true,
@@ -28,6 +31,7 @@
             "deviceSettings": {
               "useSegments": true,
               "usePresetService": true,
+              "singleAccessoryWithTV": false,
               "useWebSockets": true,
               "pollInterval": 5
             }

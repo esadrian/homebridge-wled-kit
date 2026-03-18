@@ -4,10 +4,12 @@ This plugin includes a custom UI interface for discovering WLED devices on your 
 
 ## Features
 
-- **Automatic Network Discovery**: Scans your network using both mDNS (Bonjour) and SSDP (UPnP) protocols to find WLED devices
+- **Automatic Network Discovery**: Scans your network using both mDNS (Bonjour) and UDP broadcast to find WLED devices
 - **Real-time Device Information**: Displays device name, IP address, version, MAC address, and LED count
+- **Name Before Adding**: Edit the HomeKit name before adding a discovered device (useful when multiple devices report `"WLED"`)
 - **One-Click Configuration**: Add discovered devices to your configuration with a single button click
-- **Discovery Method Indication**: Shows which protocol was used to discover each device (mDNS, SSDP, or Direct)
+- **Stop Button**: Stop discovery early from the UI
+ - **Discovery Method Indication**: Shows which protocol was used to discover each device (mDNS, UDP, or Direct)
 
 ## How to Use
 
@@ -22,7 +24,7 @@ This plugin includes a custom UI interface for discovering WLED devices on your 
 ### Discovering Devices
 
 1. Click the **"Start Discovery"** button
-2. The plugin will scan your network for 5-10 seconds
+2. The plugin will scan your network for up to ~60 seconds (devices are validated via `/json/info`)
 3. Discovered devices will appear in cards showing:
    - Device name
    - IP address and port
@@ -35,6 +37,7 @@ This plugin includes a custom UI interface for discovering WLED devices on your 
 ### Adding Devices to Configuration
 
 1. Once devices are discovered, each device card will have an **"Add to Configuration"** button
+2. Optionally edit the **Name** field first (recommended when multiple devices show up as `"WLED"`)
 2. Click this button to automatically add the device to your manual device configuration
 3. The device will be added with default settings:
    - Segments: Disabled
@@ -62,15 +65,12 @@ The plugin uses multiple discovery protocols to find WLED devices:
 
 ### mDNS (Multicast DNS)
 - Also known as Bonjour or Zeroconf
-- Discovers devices advertising the `_http._tcp` service
-- Looks for hostnames starting with "wled-"
+- Discovers devices advertising the `_wled._tcp` service
 - Most reliable for devices on the same subnet
 
-### SSDP (Simple Service Discovery Protocol)
-- Also known as UPnP discovery
-- Discovers devices responding to UPnP queries
-- Can find devices across VLANs in some network configurations
-- Looks for devices with "WLED" in the server header
+### UDP Broadcast
+- Sends a small discovery packet to UDP port `21324` (WLED sync/notification port)
+- Devices that respond are then validated via `http://<host>/json/info`
 
 ### Direct Connection
 - Manually add devices by IP address through the UI
@@ -103,9 +103,9 @@ If you try to add a device that's already in your configuration, you'll see a wa
 
 ### Discovery Takes Too Long
 
-- Initial discovery scans for about 6 seconds
-- The UI will continue polling for up to 30 seconds to catch slower-responding devices
-- You can click "Start Discovery" again to trigger a new scan
+- Discovery can run up to ~60 seconds
+- You can click **Stop** to end discovery early
+- If enabled in Plugin settings, discovery can auto-stop once all discovered devices are already configured
 
 ## Technical Details
 

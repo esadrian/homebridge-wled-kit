@@ -30,3 +30,6 @@ coverage/
 
 # Claude Code
 .claude/
+
+# Builds
+*.tgz

@@ -1,6 +1,7 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 import { WLEDPlatform } from './platform';
 import { WLEDDevice, WLEDState } from './wledDevice';
+import { HyperHDRClient } from './hyperHDRClient';
 
 /**
  * WLED Light Accessory
@@ -8,13 +9,17 @@ import { WLEDDevice, WLEDState } from './wledDevice';
  */
 export class WLEDLightAccessory {
   private lightService: Service;
+  private hyperHDRSwitchService?: Service;
 
   private states = {
     on: false,
     brightness: 0,
     hue: 0,
     saturation: 0,
+    colorTemperature: 370,
   };
+
+  private readonly hyperHDRClient?: HyperHDRClient;
 
   private stateListener = (state: WLEDState) => {
     this.updateStateFromDevice(state);
@@ -24,7 +29,9 @@ export class WLEDLightAccessory {
     private readonly platform: WLEDPlatform,
     private readonly accessory: PlatformAccessory,
     private readonly wledDevice: WLEDDevice,
+    hyperHDRClient?: HyperHDRClient,
   ) {
+    this.hyperHDRClient = hyperHDRClient;
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'WLED')
       .setCharacteristic(this.platform.Characteristic.Model, 'WLED Light')
@@ -53,6 +60,40 @@ export class WLEDLightAccessory {
       .onGet(this.getSaturation.bind(this))
       .onSet(this.setSaturation.bind(this));
 
+    this.lightService.getCharacteristic(this.platform.Characteristic.ColorTemperature)
+      .setProps({ minValue: 153, maxValue: 500 })
+      .onGet(this.getColorTemperature.bind(this))
+      .onSet(this.setColorTemperature.bind(this));
+
+    if (this.hyperHDRClient) {
+      const hyperHDRSettings = accessory.context.device?.deviceSettings?.hyperHDR || {};
+      const switchName = hyperHDRSettings.switchName || 'HyperHDR';
+      const hbService = hyperHDRSettings.serviceType === 'Outlet'
+        ? this.platform.Service.Outlet
+        : this.platform.Service.Switch;
+      // Remove stale service if the type changed
+      for (const otherSvc of [this.platform.Service.Switch, this.platform.Service.Outlet]) {
+        if (otherSvc !== hbService) {
+          const stale = this.accessory.getServiceById(otherSvc, 'hyperhdr-switch');
+          if (stale) this.accessory.removeService(stale);
+        }
+      }
+      this.hyperHDRSwitchService = this.accessory.getServiceById(hbService, 'hyperhdr-switch') ||
+        this.accessory.addService(hbService, switchName, 'hyperhdr-switch');
+      this.hyperHDRSwitchService
+        .setCharacteristic(this.platform.Characteristic.Name, switchName)
+        .setCharacteristic(this.platform.Characteristic.ConfiguredName, switchName);
+      this.hyperHDRSwitchService.getCharacteristic(this.platform.Characteristic.On)
+        .onGet(async () => this.hyperHDRClient!.getState())
+        .onSet(async (value: CharacteristicValue) => this.hyperHDRClient!.setPower(value as boolean));
+    } else {
+      for (const svc of [this.platform.Service.Switch, this.platform.Service.Outlet]) {
+        const stale = this.accessory.getServiceById(svc, 'hyperhdr-switch');
+        if (stale) this.accessory.removeService(stale);
+      }
+    }
+
+    this.wledDevice.refreshState();
     this.wledDevice.addStateListener(this.stateListener);
 
     const currentState = this.wledDevice.getState();
@@ -69,6 +110,8 @@ export class WLEDLightAccessory {
     this.lightService.updateCharacteristic(this.platform.Characteristic.Brightness, state.brightness);
     this.lightService.updateCharacteristic(this.platform.Characteristic.Hue, state.hue);
     this.lightService.updateCharacteristic(this.platform.Characteristic.Saturation, state.saturation);
+    this.lightService.updateCharacteristic(this.platform.Characteristic.ColorTemperature,
+      Math.max(153, Math.min(500, state.colorTemperature)));
   }
 
   async getOn(): Promise<CharacteristicValue> {
@@ -82,6 +125,10 @@ export class WLEDLightAccessory {
     if (this.states.on !== newValue) {
       this.states.on = newValue;
       await this.wledDevice.setPower(newValue);
+      if (this.hyperHDRClient) {
+        this.hyperHDRClient.setPower(newValue).catch(() => {});
+        this.hyperHDRSwitchService?.updateCharacteristic(this.platform.Characteristic.On, newValue);
+      }
     }
   }
 
@@ -96,6 +143,9 @@ export class WLEDLightAccessory {
     if (this.states.brightness !== newValue) {
       this.states.brightness = newValue;
       await this.wledDevice.setBrightness(newValue);
+      if (this.hyperHDRClient) {
+        this.hyperHDRClient.setBrightness(newValue).catch(() => {});
+      }
     }
   }
 
@@ -124,6 +174,20 @@ export class WLEDLightAccessory {
     if (this.states.saturation !== newValue) {
       this.states.saturation = newValue;
       await this.wledDevice.setHSV(this.states.hue, newValue, this.states.brightness);
+    }
+  }
+
+  async getColorTemperature(): Promise<CharacteristicValue> {
+    const state = this.wledDevice.getState();
+    this.states.colorTemperature = Math.max(153, Math.min(500, state.colorTemperature));
+    return this.states.colorTemperature;
+  }
+
+  async setColorTemperature(value: CharacteristicValue): Promise<void> {
+    const newValue = value as number;
+    if (this.states.colorTemperature !== newValue) {
+      this.states.colorTemperature = newValue;
+      await this.wledDevice.setColorTemperature(newValue);
     }
   }
 }
