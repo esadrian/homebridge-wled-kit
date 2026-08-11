@@ -225,7 +225,7 @@ export class MockAPI extends EventEmitter {
  */
 export function createMockPlatformConfig(overrides?: Partial<PlatformConfig>): PlatformConfig {
   return {
-    platform: 'WLED',
+    platform: 'Simpler WLED',
     name: 'WLED Test',
     devices: [],
     defaultPollInterval: 10,

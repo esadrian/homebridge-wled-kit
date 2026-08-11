@@ -1,7 +1,7 @@
 {
   "name": "homebridge-simpler-wled",
   "displayName": "Simpler WLED",
-  "version": "3.2.0",
+  "version": "3.2.0-local.1",
   "description": "Homebridge plugin for WLED LED controllers",
   "main": "dist/index.js",
   "scripts": {
@@ -53,7 +53,7 @@
     "url": "https://github.com/drewcovi/homebridge-simpler-wled/issues"
   },
   "homebridge-plugin-ui": {
-    "pluginAlias": "WLED",
+    "pluginAlias": "Simpler WLED",
     "customUiPath": "./dist/homebridge-ui"
   },
   "dependencies": {
