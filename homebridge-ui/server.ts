@@ -182,9 +182,11 @@ class PluginUiServer extends HomebridgePluginUiServer {
       // Read the cached accessories file
       const cachedData = JSON.parse(fs.readFileSync(cachedAccessoriesPath, 'utf8'));
 
-      // Filter for WLED plugin accessories (accept legacy platform alias "WLED")
+      // Filter for WLED plugin accessories (accept new + legacy plugin/platform names)
       const wledAccessories = cachedData.filter((accessory: any) =>
+        accessory.plugin === 'homebridge-wled-kit' ||
         accessory.plugin === 'homebridge-simpler-wled' ||
+        accessory.platform === 'WLED Kit' ||
         accessory.platform === 'Simpler WLED' ||
         accessory.platform === 'WLED'
       );
@@ -227,7 +229,9 @@ class PluginUiServer extends HomebridgePluginUiServer {
       const cachedData = JSON.parse(fs.readFileSync(cachedAccessoriesPath, 'utf8'));
 
       const filtered = cachedData.filter((accessory: any) => {
-        const isWled = accessory.plugin === 'homebridge-simpler-wled' ||
+        const isWled = accessory.plugin === 'homebridge-wled-kit' ||
+          accessory.plugin === 'homebridge-simpler-wled' ||
+          accessory.platform === 'WLED Kit' ||
           accessory.platform === 'Simpler WLED' ||
           accessory.platform === 'WLED';
         const matchesHost = accessory.context?.device?.host === payload.host;

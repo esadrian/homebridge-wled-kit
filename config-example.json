@@ -5,11 +5,11 @@
     "port": 51826,
     "pin": "123-45-678"
   },
-  "description": "Example configuration for homebridge-simpler-wled",
+  "description": "Example configuration for homebridge-wled-kit",
   "platforms": [
     {
-      "name": "Simpler WLED",
-      "platform": "Simpler WLED",
+      "name": "WLED Kit",
+      "platform": "WLED Kit",
       "discoverySection": {
         "autoDiscover": true
       },

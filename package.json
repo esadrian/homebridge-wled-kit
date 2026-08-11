@@ -1,7 +1,7 @@
 {
-  "name": "homebridge-simpler-wled",
-  "displayName": "Simpler WLED",
-  "version": "3.2.0-local.1",
+  "name": "homebridge-wled-kit",
+  "displayName": "WLED Kit",
+  "version": "3.2.0-local.2",
   "description": "Homebridge plugin for WLED LED controllers",
   "main": "dist/index.js",
   "scripts": {
@@ -44,16 +44,16 @@
   ],
   "author": "Drew Covi",
   "license": "MIT",
-  "homepage": "https://github.com/drewcovi/homebridge-simpler-wled#readme",
+  "homepage": "https://github.com/esadrian/homebridge-wled-kit#readme",
   "repository": {
     "type": "git",
-    "url": "git://github.com/drewcovi/homebridge-simpler-wled.git"
+    "url": "git://github.com/esadrian/homebridge-wled-kit.git"
   },
   "bugs": {
-    "url": "https://github.com/drewcovi/homebridge-simpler-wled/issues"
+    "url": "https://github.com/esadrian/homebridge-wled-kit/issues"
   },
   "homebridge-plugin-ui": {
-    "pluginAlias": "Simpler WLED",
+    "pluginAlias": "WLED Kit",
     "customUiPath": "./dist/homebridge-ui"
   },
   "dependencies": {

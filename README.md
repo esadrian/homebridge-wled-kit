@@ -1,7 +1,7 @@
 <DIV ALIGN="CENTER" STYLE="text-align:center">
    
-# Simpler WLED for Homebridge
-[![Version](https://img.shields.io/npm/v/homebridge-simpler-wled?color=%230559C9&label=Latest%20Version&logo=data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCEtLSBHZW5lcmF0ZWQgYnkgUGl4ZWxtYXRvciBQcm8gMy43LjEgLS0+Cjxzdmcgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMTYgMTYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgICA8cGF0aCBpZD0iUGF0aCIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9Im5vbmUiIGQ9Ik0gNyAxNiBMIDcgMTMgTCA2IDEzIEwgNiAxNiBMIDcgMTYgWiBNIDcgMTIgTCA3IDEzIEwgOCAxMyBMIDggMTIgTCA3IDEyIFogTSAxMiA2IEwgMTIgMTAgTCAxMyAxMCBMIDEzIDExIEwgMTIgMTEgTCAxMiAxMiBMIDExIDEyIEwgMTEgMTEgTCAxMCAxMSBMIDEwIDE1IEwgOSAxNSBMIDkgMTEgTCA3IDExIEwgNyAxMiBMIDYgMTIgTCA2IDExIEwgNSAxMSBMIDUgMTIgTCA0IDEyIEwgNCAxMyBMIDIgMTMgTCAyIDEyIEwgMSAxMiBMIDEgMTAgTCAwIDEwIEwgMCA5IEwgMSA5IEwgMSAxMCBMIDIgMTAgTCAyIDEyIEwgNCAxMiBMIDQgMTEgTCAzIDExIEwgMyAxMCBMIDQgMTAgTCA0IDMgTCA1IDMgTCA1IDIgTCA2IDIgTCA2IDEgTCAxMCAxIEwgMTAgMiBMIDExIDIgTCAxMSAzIEwgMTIgMyBMIDEyIDQgTCAxMSA0IEwgMTEgNiBMIDEyIDYgWiBNIDEwIDQgTCAxMCAzIEwgMTEgMyBMIDExIDQgTCAxMCA0IFogTSAxMCA0IEwgMTAgNiBMIDkgNiBMIDkgNCBMIDEwIDQgWiBNIDE0IDEyIEwgMTMgMTIgTCAxMyAxMyBMIDE1IDEzIEwgMTUgMTAgTCAxNCAxMCBMIDE0IDEyIFogTSAxNSAxMCBMIDE2IDEwIEwgMTYgOSBMIDE1IDkgTCAxNSAxMCBaIE0gOCA4IEwgOSA4IEwgOSA3IEwgOCA3IEwgOCA4IFogTSA2IDYgTCA1IDYgTCA1IDQgTCA2IDQgTCA2IDMgTCA3IDMgTCA3IDQgTCA4IDQgTCA4IDYgTCA3IDYgTCA3IDQgTCA2IDQgTCA2IDYgWiIvPgo8L3N2Zz4K&style=for-the-badge)](https://www.npmjs.com/package/homebridge-simpler-wled)
+# WLED Kit for Homebridge
+[![Version](https://img.shields.io/npm/v/homebridge-wled-kit?color=%230559C9&label=Latest%20Version&logo=data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCEtLSBHZW5lcmF0ZWQgYnkgUGl4ZWxtYXRvciBQcm8gMy43LjEgLS0+Cjxzdmcgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMTYgMTYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgICA8cGF0aCBpZD0iUGF0aCIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9Im5vbmUiIGQ9Ik0gNyAxNiBMIDcgMTMgTCA2IDEzIEwgNiAxNiBMIDcgMTYgWiBNIDcgMTIgTCA3IDEzIEwgOCAxMyBMIDggMTIgTCA3IDEyIFogTSAxMiA2IEwgMTIgMTAgTCAxMyAxMCBMIDEzIDExIEwgMTIgMTEgTCAxMiAxMiBMIDExIDEyIEwgMTEgMTEgTCAxMCAxMSBMIDEwIDE1IEwgOSAxNSBMIDkgMTEgTCA3IDExIEwgNyAxMiBMIDYgMTIgTCA2IDExIEwgNSAxMSBMIDUgMTIgTCA0IDEyIEwgNCAxMyBMIDIgMTMgTCAyIDEyIEwgMSAxMiBMIDEgMTAgTCAwIDEwIEwgMCA5IEwgMSA5IEwgMSAxMCBMIDIgMTAgTCAyIDEyIEwgNCAxMiBMIDQgMTEgTCAzIDExIEwgMyAxMCBMIDQgMTAgTCA0IDMgTCA1IDMgTCA1IDIgTCA2IDIgTCA2IDEgTCAxMCAxIEwgMTAgMiBMIDExIDIgTCAxMSAzIEwgMTIgMyBMIDEyIDQgTCAxMSA0IEwgMTEgNiBMIDEyIDYgWiBNIDEwIDQgTCAxMCAzIEwgMTEgMyBMIDExIDQgTCAxMCA0IFogTSAxMCA0IEwgMTAgNiBMIDkgNiBMIDkgNCBMIDEwIDQgWiBNIDE0IDEyIEwgMTMgMTIgTCAxMyAxMyBMIDE1IDEzIEwgMTUgMTAgTCAxNCAxMCBMIDE0IDEyIFogTSAxNSAxMCBMIDE2IDEwIEwgMTYgOSBMIDE1IDkgTCAxNSAxMCBaIE0gOCA4IEwgOSA4IEwgOSA3IEwgOCA3IEwgOCA4IFogTSA2IDYgTCA1IDYgTCA1IDQgTCA2IDQgTCA2IDMgTCA3IDMgTCA3IDQgTCA4IDQgTCA4IDYgTCA3IDYgTCA3IDQgTCA2IDQgTCA2IDYgWiIvPgo8L3N2Zz4K&style=for-the-badge)](https://www.npmjs.com/package/homebridge-wled-kit)
 [![verified-by-homebridge](https://img.shields.io/badge/homebridge-verified-blueviolet?color=%23491F59&style=for-the-badge&logoColor=%23FFFFFF&logo=homebridge)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
 
 </DIV>
@@ -38,8 +38,8 @@ A Homebridge plugin for controlling WLED-powered LED strips through HomeKit.
 1. **Install Homebridge** if you haven't already using the [official instructions](https://github.com/homebridge/homebridge/wiki)
 2. **Install Homebridge Config UI X** (if not already installed) - highly recommended for the interactive discovery UI
 3. **Install this plugin** using one of these methods:
-   - Via Homebridge Config UI X: Search for "Simpler WLED" in the Plugins tab and click Install
-   - Via npm: `npm install -g homebridge-simpler-wled`
+   - Via Homebridge Config UI X: Search for "WLED Kit" in the Plugins tab and click Install
+   - Via npm: `npm install -g homebridge-wled-kit`
 4. **Configure the plugin** using the methods described below
 5. **Restart Homebridge**
 
@@ -50,7 +50,7 @@ A Homebridge plugin for controlling WLED-powered LED strips through HomeKit.
 If you're using [Homebridge Config UI X](https://github.com/oznu/homebridge-config-ui-x), the easiest way to set up your WLED devices is through the interactive discovery interface:
 
 1. Navigate to the **Plugins** tab in Homebridge Config UI X
-2. Find **Simpler WLED** and click **Settings**
+2. Find **WLED Kit** and click **Settings**
 3. **Use the Discovery UI** to find WLED devices on your network:
    - Click "Start Discovery" to scan for devices
    - View device details (IP, version, MAC address, LED count)
@@ -71,8 +71,8 @@ The simplest configuration - just add devices manually:
 
 ```json
 {
-  "platform": "Simpler WLED",
-  "name": "Simpler WLED",
+  "platform": "WLED Kit",
+  "name": "WLED Kit",
   "manualDevicesSection": {
     "devices": [
       {
@@ -90,8 +90,8 @@ Complete configuration showing all available options:
 
 ```json
 {
-  "platform": "Simpler WLED",
-  "name": "Simpler WLED",
+  "platform": "WLED Kit",
+  "name": "WLED Kit",
   "logLevel": "info",
   "tvNameSuffix": "Presets",
   "customInputLabel": "Custom",
@@ -148,8 +148,8 @@ These settings apply to the entire platform:
 
 | Property | Type | Description | Default | Required |
 |----------|------|-------------|---------|----------|
-| `platform` | string | Must be `"Simpler WLED"` | - | **Yes** |
-| `name` | string | Name of the platform in Homebridge | `"Simpler WLED"` | **Yes** |
+| `platform` | string | Must be `"WLED Kit"` | - | **Yes** |
+| `name` | string | Name of the platform in Homebridge | `"WLED Kit"` | **Yes** |
 | `logLevel` | string | Logging level: `"error"`, `"warn"`, `"info"`, or `"debug"` | `"info"` | No |
 | `autoStopDiscoveryWhenAllConfigured` | boolean | In the Custom UI Discovery tab, automatically stop discovery once all discovered devices are already configured | `true` | No |
 | `tvNameSuffix` | string | Suffix appended to the TV/preset accessory name | `"Presets"` | No |
@@ -419,7 +419,7 @@ For devices that can't be discovered automatically, or if you prefer explicit co
 **Problem:** Can't find the plugin or Custom UI in Homebridge Config UI X
 
 **Solutions:**
-- Ensure plugin is properly installed: `npm list -g homebridge-simpler-wled`
+- Ensure plugin is properly installed: `npm list -g homebridge-wled-kit`
 - Restart Homebridge Config UI X
 - Clear browser cache and reload the page
 - Check that Homebridge Config UI X is up to date
@@ -431,7 +431,7 @@ Enable debug logging to troubleshoot issues:
 
 ```json
 {
-  "platform": "Simpler WLED",
+  "platform": "WLED Kit",
   "logLevel": "debug"
 }
 ```
@@ -444,8 +444,8 @@ Then check Homebridge logs for detailed information about plugin operations.
 
 1. **Clone this repository:**
    ```bash
-   git clone https://github.com/drewcovi/homebridge-simpler-wled.git
-   cd homebridge-simpler-wled
+   git clone https://github.com/esadrian/homebridge-wled-kit.git
+   cd homebridge-wled-kit
    ```
 
 2. **Install dependencies:**
@@ -474,19 +474,19 @@ Homebridge caches installed plugins by version. **Always bump the version in `pa
    ```
 3. **Pack and install into Homebridge:**
    ```bash
-   npm pack && sudo hb-service install homebridge-simpler-wled-<nueva-versión>.tgz
+   npm pack && sudo hb-service install homebridge-wled-kit-<new-version>.tgz
    ```
-   Replace `<nueva-versión>` with the exact version from `package.json` (for example `homebridge-simpler-wled-3.2.0-local.2.tgz`).
+   Replace `<new-version>` with the exact version from `package.json` (for example `homebridge-wled-kit-3.2.0-local.2.tgz`).
 
    If `hb-service` is not on your `PATH`, use the one from this repo after `npm install`:
    ```bash
    npm pack
-   sudo ./node_modules/.bin/hb-service install homebridge-simpler-wled-<nueva-versión>.tgz
+   sudo ./node_modules/.bin/hb-service install homebridge-wled-kit-<new-version>.tgz
    ```
    You can also install into the Homebridge storage folder directly:
    ```bash
    npm pack
-   cd ~/.homebridge && npm install /path/to/homebridge-simpler-wled/homebridge-simpler-wled-<nueva-versión>.tgz --save
+   cd ~/.homebridge && npm install /path/to/homebridge-wled-kit/homebridge-wled-kit-<new-version>.tgz --save
    ```
 4. **Restart Homebridge** and hard-reload the Config UI X page in the browser to confirm the new version is active.
 
@@ -546,7 +546,7 @@ Contributions are welcome! Please:
 
 ## Support
 
-- **Issues:** Report bugs or request features on [GitHub Issues](https://github.com/drewcovi/homebridge-simpler-wled/issues)
+- **Issues:** Report bugs or request features on [GitHub Issues](https://github.com/esadrian/homebridge-wled-kit/issues)
 - **WLED Documentation:** [WLED Knowledge Base](https://kno.wled.ge/)
 - **Homebridge Documentation:** [Homebridge Wiki](https://github.com/homebridge/homebridge/wiki)
 
@@ -556,6 +556,6 @@ MIT
 
 ## Credits
 
-Developed by Drew Covi
+Originally developed by Drew Covi as homebridge-simpler-wled. Continued as homebridge-wled-kit by esadrian.
 
 Special thanks to the [WLED project](https://github.com/Aircoookie/WLED) for creating an amazing LED controller firmware.

@@ -1,11 +1,11 @@
 {
-  "pluginAlias": "Simpler WLED",
+  "pluginAlias": "WLED Kit",
   "pluginType": "platform",
   "singular": true,
   "customUi": true,
   "customUiPath": "./dist/homebridge-ui",
   "headerDisplay": "Homebridge plugin for WLED - control your WLED-powered LED strips through HomeKit",
-  "footerDisplay": "For more information, see the [WLED website](https://kno.wled.ge/) and [GitHub repository](https://github.com/drewcovi/homebridge-simpler-wled).",
+  "footerDisplay": "For more information, see the [WLED website](https://kno.wled.ge/) and [GitHub repository](https://github.com/esadrian/homebridge-wled-kit).",
   "schema": {
     "type": "object",
     "required": ["name"],
@@ -13,7 +13,7 @@
       "name": {
         "title": "Plugin Name",
         "type": "string",
-        "default": "Simpler WLED"
+        "default": "WLED Kit"
       },
       "logLevel": {
         "title": "Log Level",
