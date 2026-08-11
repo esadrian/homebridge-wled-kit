@@ -458,15 +458,39 @@ Then check Homebridge logs for detailed information about plugin operations.
    npm run build
    ```
 
-4. **Link to your local Homebridge installation for testing:**
-   ```bash
-   npm link
-   ```
-
-5. **Watch for changes during development:**
+4. **Watch for changes during development (optional):**
    ```bash
    npm run watch
    ```
+
+### Local testing with Homebridge
+
+Homebridge caches installed plugins by version. **Always bump the version in `package.json` before each local install**, or the UI may keep serving the previous build.
+
+1. **Bump the version** in `package.json` (example: `3.2.0-local.1` → `3.2.0-local.2`).
+2. **Build:**
+   ```bash
+   npm run build
+   ```
+3. **Pack and install into Homebridge:**
+   ```bash
+   npm pack && sudo hb-service install homebridge-simpler-wled-<nueva-versión>.tgz
+   ```
+   Replace `<nueva-versión>` with the exact version from `package.json` (for example `homebridge-simpler-wled-3.2.0-local.2.tgz`).
+
+   If `hb-service` is not on your `PATH`, use the one from this repo after `npm install`:
+   ```bash
+   npm pack
+   sudo ./node_modules/.bin/hb-service install homebridge-simpler-wled-<nueva-versión>.tgz
+   ```
+   You can also install into the Homebridge storage folder directly:
+   ```bash
+   npm pack
+   cd ~/.homebridge && npm install /path/to/homebridge-simpler-wled/homebridge-simpler-wled-<nueva-versión>.tgz --save
+   ```
+4. **Restart Homebridge** and hard-reload the Config UI X page in the browser to confirm the new version is active.
+
+Without the version bump, you cannot reliably confirm that your local changes are what Homebridge is running.
 
 ### Available Scripts
 
