@@ -5,13 +5,13 @@ describe('Settings', () => {
     it('should export PLATFORM_NAME', () => {
       expect(PLATFORM_NAME).toBeDefined();
       expect(typeof PLATFORM_NAME).toBe('string');
-      expect(PLATFORM_NAME).toBe('Simpler WLED');
+      expect(PLATFORM_NAME).toBe('WLED Kit');
     });
 
     it('should export PLUGIN_NAME', () => {
       expect(PLUGIN_NAME).toBeDefined();
       expect(typeof PLUGIN_NAME).toBe('string');
-      expect(PLUGIN_NAME).toBe('homebridge-simpler-wled');
+      expect(PLUGIN_NAME).toBe('homebridge-wled-kit');
     });
 
     it('should not be empty strings', () => {

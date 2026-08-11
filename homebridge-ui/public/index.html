@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simpler WLED Configuration</title>
+  <title>WLED Kit Configuration</title>
   <!-- Bootstrap CSS is injected by Homebridge (includes its theme overrides + dark mode). -->
   <!-- We only load Bootstrap JS ourselves for data-bs-toggle="dropdown" to work. -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
@@ -2155,7 +2155,7 @@
 
         // Ensure config structure exists — initialize if empty
         if (!config || config.length === 0) {
-          config.push({ name: 'WLED', platform: 'WLED' });
+          config.push({ name: 'WLED Kit', platform: 'WLED Kit' });
           await window.homebridge.updatePluginConfig(config);
         }
 
