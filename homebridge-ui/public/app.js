@@ -135,6 +135,76 @@ function escapeHtml(str) {
       if(opts.toast) await window.homebridge.toast.success(withSaveHint(opts.toast), opts.title||'Updated');
       return {config, result};
     }
+    const NIGHTLIGHT_TIMER_MAX=8;
+    const NIGHTLIGHT_TIMER_PRESETS=[
+      { label:'5 min', name:'5 min', seconds:300 },
+      { label:'10 min', name:'10 min', seconds:600 },
+      { label:'15 min', name:'15 min', seconds:900 },
+      { label:'30 min', name:'30 min', seconds:1800 },
+      { label:'1 hour', name:'1 hour', seconds:3600 },
+    ];
+
+    function normalizeTimerName(name){
+      return String(name||'').trim().toLowerCase();
+    }
+    function timerSecondsInputValue(seconds){
+      if(seconds==null||seconds==='') return '';
+      const n=parseInt(String(seconds),10);
+      return Number.isFinite(n)&&n>0?String(n):'';
+    }
+    function getTimerOverlapInfo(timers, candidate, excludeIndex=-1){
+      const nameKey=normalizeTimerName(candidate.name);
+      const sec=parseInt(String(candidate.seconds),10);
+      const nameMatches=[];
+      const secMatches=[];
+      (timers||[]).forEach((t,i)=>{
+        if(i===excludeIndex) return;
+        if(normalizeTimerName(t.name)===nameKey) nameMatches.push(i+1);
+        if(Number.isFinite(sec)&&sec>0&&parseInt(String(t.seconds),10)===sec) secMatches.push(i+1);
+      });
+      return { nameMatches, secMatches };
+    }
+    function notifyTimerOverlaps(timers, candidate, excludeIndex=-1){
+      const { nameMatches, secMatches }=getTimerOverlapInfo(timers, candidate, excludeIndex);
+      if(!nameMatches.length&&!secMatches.length) return;
+      const parts=[];
+      if(nameMatches.length){
+        const label=(candidate.name||'').trim()||'(empty name)';
+        parts.push(`Same name (“${label}”) as timer #${nameMatches.join(', #')}`);
+      }
+      if(secMatches.length) parts.push(`Same duration (${candidate.seconds} sec) as timer #${secMatches.join(', #')}`);
+      const body=`${parts.join('. ')}. Duplicates are allowed, but HomeKit may show identical switches.`;
+      window.alert(`Timer overlap\n\n${body}`);
+    }
+    async function checkTimerLimit(timers){
+      if((timers?.length||0)>=NIGHTLIGHT_TIMER_MAX){
+        await window.homebridge.toast.warning(
+          `Maximum of ${NIGHTLIGHT_TIMER_MAX} nightlight timers allowed. Remove one before adding another.`,
+          'Timer limit',
+        );
+        return false;
+      }
+      return true;
+    }
+    function renderTimerPresetBar(context, timerCount){
+      const atLimit=timerCount>=NIGHTLIGHT_TIMER_MAX;
+      const disabled=atLimit?' disabled':'';
+      const presetBtns=NIGHTLIGHT_TIMER_PRESETS.map(p=>{
+        const safeName=p.name.replace(/'/g,"\\'");
+        const onclick=context==='global'
+          ? `addGlobalNightlightTimerPreset(${p.seconds},'${safeName}')`
+          : `addNightlightTimerPreset(${context},${p.seconds},'${safeName}')`;
+        return `<button type="button" class="btn btn-outline-secondary btn-sm timer-preset-btn"${disabled} onclick="${onclick}">${p.label}</button>`;
+      }).join('');
+      const customOnclick=context==='global'?'addGlobalNightlightTimerCustom()':`addNightlightTimerCustom(${context})`;
+      return `<div class="timer-preset-bar">
+        <span class="grey-text small timer-preset-label">Quick add:</span>
+        <div class="timer-preset-btns">${presetBtns}</div>
+        <button type="button" class="btn btn-primary btn-sm"${disabled} onclick="${customOnclick}">Custom timer</button>
+      </div>
+      <div class="grey-text small mt-1">${timerCount}/${NIGHTLIGHT_TIMER_MAX} timers</div>`;
+    }
+
     function renderTimersHtml(timers, opts={}){
       const {linked=false, emptyText=linked?'No global timers.':'No timers yet.', onName, onSeconds, onRemove}=opts;
       if(!timers?.length) return `<div class="small text-muted fst-italic">${emptyText}</div>`;
@@ -143,7 +213,7 @@ function escapeHtml(str) {
           <div class="col"><label class="form-label small mb-1">Name</label>
             <input type="text" class="form-control form-control-sm" value="${(t.name||'').replace(/"/g,'&quot;')}" placeholder="e.g. 5 min" ${linked?'disabled':`onchange="${onName(tIndex)}"`}></div>
           <div class="col-3"><label class="form-label small mb-1">Sec</label>
-            <input type="number" class="form-control form-control-sm" min="1" value="${t.seconds||''}" placeholder="300" ${linked?'disabled':`onchange="${onSeconds(tIndex)}"`}></div>
+            <input type="number" class="form-control form-control-sm" min="1" value="${timerSecondsInputValue(t.seconds)}" placeholder="300" ${linked?'disabled':`onchange="${onSeconds(tIndex)}"`}></div>
           ${linked||!onRemove?'':`<div class="col-auto"><button class="btn btn-outline-danger btn-sm" onclick="${onRemove(tIndex)}">Remove</button></div>`}
         </div>`).join('');
     }
@@ -207,10 +277,10 @@ function escapeHtml(str) {
           </select>`
         )}
         <li class="list-group-item ${showTimers?'':'d-none'}" id="nightlight-details-${index}">
-          <small class="grey-text pe-2">Timers turn the nightlight on/off at set times for this device.</small>
+          <small class="grey-text pe-2">Timers turn the nightlight on/off at set times for this device (max ${NIGHTLIGHT_TIMER_MAX}).</small>
           <div class="hb-nested-fields mt-2">
             <div id="nightlight-timers-${index}">${deviceTimersHtml(timers, false, index)}</div>
-            <div><button class="btn btn-primary btn-sm" onclick="addNightlightTimer(${index})">Add timer</button></div>
+            <div id="nightlight-timer-controls-${index}">${renderTimerPresetBar(index, (timers||[]).length)}</div>
           </div>
         </li>
       `, `id="nightlight-section-${index}"`);
@@ -564,7 +634,6 @@ function escapeHtml(str) {
             const timers=d.deviceSettings.nightlight?.timers?.length
               ? d.deviceSettings.nightlight.timers
               : JSON.parse(JSON.stringify(globalNl.timers||[]));
-            if(!timers.length) timers.push({name:'5 min',seconds:300});
             d.deviceSettings.nightlight={enabled:true,timers};
           }
         });
@@ -578,18 +647,39 @@ function escapeHtml(str) {
       }catch(e){ await window.homebridge.toast.error(e.message,'Error'); }
     }
     function renderNightlightTimers(index, timers){
-      const c=document.getElementById(`nightlight-timers-${index}`);
-      if(c) c.innerHTML=deviceTimersHtml(timers,false,index);
+      const list=document.getElementById(`nightlight-timers-${index}`);
+      const controls=document.getElementById(`nightlight-timer-controls-${index}`);
+      const t=timers||[];
+      if(list) list.innerHTML=deviceTimersHtml(t,false,index);
+      if(controls) controls.innerHTML=renderTimerPresetBar(index, t.length);
     }
-    async function addNightlightTimer(index){
+    async function addNightlightTimerPreset(index, seconds, name){
       try{
-        const {device}=await mutateDevice(index,d=>{
+        const {device}=await mutateDevice(index,async d=>{
           if(!d.deviceSettings.nightlight) d.deviceSettings.nightlight={enabled:true,timers:[]};
           d.deviceSettings.nightlight.enabled=true;
-          (d.deviceSettings.nightlight.timers||(d.deviceSettings.nightlight.timers=[])).push({name:'5 min',seconds:300});
+          const timers=d.deviceSettings.nightlight.timers||(d.deviceSettings.nightlight.timers=[]);
+          if(!(await checkTimerLimit(timers))) throw new Error('__limit');
+          const newTimer={ name, seconds };
+          await notifyTimerOverlaps(timers, newTimer);
+          timers.push(newTimer);
         });
-        renderNightlightTimers(index, device.deviceSettings.nightlight.timers);
-      }catch(e){ await window.homebridge.toast.error(e.message,'Error'); }
+        if(device) renderNightlightTimers(index, device.deviceSettings.nightlight.timers);
+      }catch(e){ if(e.message!=='__limit') await window.homebridge.toast.error(e.message,'Error'); }
+    }
+    async function addNightlightTimerCustom(index){
+      try{
+        const {device}=await mutateDevice(index,async d=>{
+          if(!d.deviceSettings.nightlight) d.deviceSettings.nightlight={enabled:true,timers:[]};
+          d.deviceSettings.nightlight.enabled=true;
+          const timers=d.deviceSettings.nightlight.timers||(d.deviceSettings.nightlight.timers=[]);
+          if(!(await checkTimerLimit(timers))) throw new Error('__limit');
+          const newTimer={ name:'', seconds:null };
+          await notifyTimerOverlaps(timers, newTimer);
+          timers.push(newTimer);
+        });
+        if(device) renderNightlightTimers(index, device.deviceSettings.nightlight.timers);
+      }catch(e){ if(e.message!=='__limit') await window.homebridge.toast.error(e.message,'Error'); }
     }
     async function removeNightlightTimer(index, timerIndex){
       try{
@@ -601,12 +691,42 @@ function escapeHtml(str) {
       }catch(e){ await window.homebridge.toast.error(e.message,'Error'); }
     }
     async function updateNightlightTimerName(index, timerIndex, name){
-      try{ await mutateDevice(index,d=>{ const nl=d.deviceSettings?.nightlight; if(nl?.timers?.[timerIndex]) nl.timers[timerIndex].name=(name||'').trim(); }); }catch(_){}
+      try{
+        const {device}=await mutateDevice(index,d=>{
+          const nl=d.deviceSettings?.nightlight;
+          if(!nl?.timers?.[timerIndex]) return;
+          nl.timers[timerIndex].name=(name||'').trim();
+        });
+        const timers=device?.deviceSettings?.nightlight?.timers||[];
+        if(timers[timerIndex]) await notifyTimerOverlaps(timers, timers[timerIndex], timerIndex);
+      }catch(_){}
     }
     async function updateNightlightTimerSeconds(index, timerIndex, seconds){
       try{
-        const value=parseInt(seconds,10); if(!Number.isFinite(value)||value<=0) return;
-        await mutateDevice(index,d=>{ const nl=d.deviceSettings?.nightlight; if(nl?.timers?.[timerIndex]) nl.timers[timerIndex].seconds=value; });
+        const raw=(seconds??'').toString().trim();
+        if(!raw){
+          await mutateDevice(index,d=>{
+            const nl=d.deviceSettings?.nightlight;
+            if(!nl?.timers?.[timerIndex]) return;
+            nl.timers[timerIndex].seconds=null;
+          });
+          return;
+        }
+        const value=parseInt(raw,10);
+        if(!Number.isFinite(value)||value<=0){
+          await window.homebridge.toast.warning('Timer duration must be a positive number of seconds.','Invalid duration');
+          const config=await window.homebridge.getPluginConfig();
+          const timers=getDevicesArray(config)?.[index]?.deviceSettings?.nightlight?.timers||[];
+          renderNightlightTimers(index, timers);
+          return;
+        }
+        const {device}=await mutateDevice(index,d=>{
+          const nl=d.deviceSettings?.nightlight;
+          if(!nl?.timers?.[timerIndex]) return;
+          nl.timers[timerIndex].seconds=value;
+        });
+        const timers=device?.deviceSettings?.nightlight?.timers||[];
+        if(timers[timerIndex]) await notifyTimerOverlaps(timers, timers[timerIndex], timerIndex);
       }catch(_){}
     }
     async function renameDevice(index, currentName){
@@ -695,21 +815,42 @@ function escapeHtml(str) {
     }
     function renderGlobalNightlightTimers(timers){
       const container=document.getElementById('globalNightlightTimers');
-      if(!container) return;
-      container.innerHTML=renderTimersHtml(timers,{
+      const controls=document.getElementById('globalNightlightTimerControls');
+      const t=timers||[];
+      if(container) container.innerHTML=renderTimersHtml(t,{
         emptyText:'No global timers.',
         onName:i=>`updateGlobalNightlightTimer(${i},'name',this.value)`,
         onSeconds:i=>`updateGlobalNightlightTimer(${i},'seconds',this.value)`,
         onRemove:i=>`removeGlobalNightlightTimer(${i})`,
       });
+      if(controls) controls.innerHTML=renderTimerPresetBar('global', t.length);
     }
-    async function addGlobalNightlightTimer(){
+    async function addGlobalNightlightTimerPreset(seconds, name){
       try{
         const config=await window.homebridge.getPluginConfig();
         if(!config[0].manualDevicesSection) config[0].manualDevicesSection={devices:[]};
         if(!config[0].manualDevicesSection.nightlight) config[0].manualDevicesSection.nightlight={enabled:false,timers:[]};
         const timers=config[0].manualDevicesSection.nightlight.timers||[];
-        timers.push({name:'5 min',seconds:300});
+        if(!(await checkTimerLimit(timers))) return;
+        const newTimer={ name, seconds };
+        await notifyTimerOverlaps(timers, newTimer);
+        timers.push(newTimer);
+        config[0].manualDevicesSection.nightlight.timers=timers;
+        await window.homebridge.updatePluginConfig(config);
+        await notifyAction('Nightlight timer added.','Nightlight');
+        renderGlobalNightlightTimers(timers);
+      }catch(e){ await window.homebridge.toast.error(e.message,'Error'); }
+    }
+    async function addGlobalNightlightTimerCustom(){
+      try{
+        const config=await window.homebridge.getPluginConfig();
+        if(!config[0].manualDevicesSection) config[0].manualDevicesSection={devices:[]};
+        if(!config[0].manualDevicesSection.nightlight) config[0].manualDevicesSection.nightlight={enabled:false,timers:[]};
+        const timers=config[0].manualDevicesSection.nightlight.timers||[];
+        if(!(await checkTimerLimit(timers))) return;
+        const newTimer={ name:'', seconds:null };
+        await notifyTimerOverlaps(timers, newTimer);
+        timers.push(newTimer);
         config[0].manualDevicesSection.nightlight.timers=timers;
         await window.homebridge.updatePluginConfig(config);
         await notifyAction('Nightlight timer added.','Nightlight');
@@ -731,9 +872,28 @@ function escapeHtml(str) {
         const config=await window.homebridge.getPluginConfig();
         const timers=config[0].manualDevicesSection?.nightlight?.timers||[];
         if(!timers[i]) return;
-        timers[i][field]=field==='seconds'?parseInt(value,10):value;
+        if(field==='seconds'){
+          const raw=(value??'').toString().trim();
+          if(!raw){
+            timers[i].seconds=null;
+          }else{
+            const parsed=parseInt(raw,10);
+            if(!Number.isFinite(parsed)||parsed<=0){
+              await window.homebridge.toast.warning('Timer duration must be a positive number of seconds.','Invalid duration');
+              renderGlobalNightlightTimers(timers);
+              return;
+            }
+            timers[i].seconds=parsed;
+          }
+        }else{
+          timers[i].name=String(value||'').trim();
+        }
         await window.homebridge.updatePluginConfig(config);
         markRestartNeeded();
+        if(field==='name'||(field==='seconds'&&timers[i].seconds!=null)){
+          await notifyTimerOverlaps(timers, timers[i], i);
+        }
+        renderGlobalNightlightTimers(timers);
       }catch(_){}
     }
 

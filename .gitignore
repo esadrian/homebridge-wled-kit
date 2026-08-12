@@ -37,5 +37,8 @@ coverage/
 # Claude Code
 .claude/
 
+# Local-only dev scripts (Pi sync, personal env)
+.local/
+
 # Builds
 *.tgz

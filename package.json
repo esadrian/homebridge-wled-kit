@@ -1,7 +1,7 @@
 {
   "name": "homebridge-wled-kit",
-  "displayName": "WLED Kit",
-  "version": "1.0.0-local.20",
+  "displayName": "Homebridge WLED Kit",
+  "version": "1.0.0-local.25",
   "description": "Homebridge plugin for WLED LED controllers",
   "main": "dist/index.js",
   "files": [
@@ -24,11 +24,7 @@
     "build:ui": "tsc -p homebridge-ui/tsconfig.json && rm -rf dist/homebridge-ui/public && mkdir -p dist/homebridge-ui && cp -r homebridge-ui/public dist/homebridge-ui/",
     "prepublishOnly": "npm run build",
     "watch": "tsc -w",
-    "watch:ui": "npx --yes chokidar-cli 'homebridge-ui/**/*' -c 'npm run build:ui'",
-    "pi:sync": "bash scripts/pi-sync.sh",
-    "pi:restart": "bash scripts/pi-restart.sh",
-    "pi:setup": "bash scripts/pi-setup-live.sh",
-    "pi:dev": "npx --yes concurrently -k -n tsc,ui,sync -c blue,magenta,green \"npm run watch\" \"npm run watch:ui\" \"npx --yes chokidar-cli 'dist/**/*' 'config.schema.json' 'package.json' --debounce 500 -c 'npm run pi:sync'\""
+    "watch:ui": "npx --yes chokidar-cli 'homebridge-ui/**/*' -c 'npm run build:ui'"
   },
   "engines": {
     "node": "^20 || ^22 || ^24",
@@ -54,7 +50,9 @@
       "url": "https://paypal.me/drewcovi"
     }
   ],
-  "author": "Drew Covi",
+  "author": {
+    "name": "esadrian"
+  },
   "license": "MIT",
   "homepage": "https://github.com/esadrian/homebridge-wled-kit#readme",
   "repository": {

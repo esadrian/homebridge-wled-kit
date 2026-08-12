@@ -250,7 +250,17 @@ export interface NightlightConfig {
 /**
  * Resolve effective nightlight config: device overrides global when present.
  * Empty device timers fall back to global timers (legacy behavior).
+ * Incomplete draft timers (missing name or seconds) are ignored for HomeKit.
  */
+function filterValidNightlightTimers(
+  timers: Array<{ name?: string; seconds?: number | null }> | undefined,
+): NightlightConfig['timers'] {
+  return (timers || []).filter((t) => {
+    const sec = Number(t.seconds);
+    return String(t.name || '').trim().length > 0 && Number.isFinite(sec) && sec > 0;
+  }) as NightlightConfig['timers'];
+}
+
 export function resolveNightlightConfig(
   deviceSettings: DeviceSettings | Record<string, unknown> | undefined,
   globalNightlight: NightlightSettings | Record<string, unknown> | undefined,
@@ -260,17 +270,20 @@ export function resolveNightlightConfig(
 
   if (device) {
     const deviceTimers = Array.isArray(device.timers) ? device.timers : [];
+    const resolvedTimers = deviceTimers.length > 0
+      ? deviceTimers
+      : (Array.isArray(global.timers) ? global.timers as NightlightConfig['timers'] : []);
     return {
       enabled: device.enabled === true,
-      timers: deviceTimers.length > 0
-        ? deviceTimers
-        : (Array.isArray(global.timers) ? global.timers as NightlightConfig['timers'] : []),
+      timers: filterValidNightlightTimers(resolvedTimers),
     };
   }
 
   return {
     enabled: (global as NightlightSettings).enabled === true,
-    timers: Array.isArray(global.timers) ? global.timers as NightlightConfig['timers'] : [],
+    timers: filterValidNightlightTimers(
+      Array.isArray(global.timers) ? global.timers as NightlightConfig['timers'] : [],
+    ),
   };
 }
 

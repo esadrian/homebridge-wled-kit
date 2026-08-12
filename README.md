@@ -1,5 +1,9 @@
+<p align="center">
+  <a href="https://github.com/esadrian/homebridge-wled-kit"><img src="https://raw.githubusercontent.com/esadrian/homebridge-wled-kit/main/branding/Homebridge_x_WLED.png" width="600px" alt="Homebridge x WLED"></a>
+</p>
+
 <DIV ALIGN="CENTER" STYLE="text-align:center">
-   
+
 # WLED Kit for Homebridge
 [![Version](https://img.shields.io/npm/v/homebridge-wled-kit?color=%230559C9&label=Latest%20Version&logo=data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCEtLSBHZW5lcmF0ZWQgYnkgUGl4ZWxtYXRvciBQcm8gMy43LjEgLS0+Cjxzdmcgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiB2aWV3Qm94PSIwIDAgMTYgMTYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgICA8cGF0aCBpZD0iUGF0aCIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9Im5vbmUiIGQ9Ik0gNyAxNiBMIDcgMTMgTCA2IDEzIEwgNiAxNiBMIDcgMTYgWiBNIDcgMTIgTCA3IDEzIEwgOCAxMyBMIDggMTIgTCA3IDEyIFogTSAxMiA2IEwgMTIgMTAgTCAxMyAxMCBMIDEzIDExIEwgMTIgMTEgTCAxMiAxMiBMIDExIDEyIEwgMTEgMTEgTCAxMCAxMSBMIDEwIDE1IEwgOSAxNSBMIDkgMTEgTCA3IDExIEwgNyAxMiBMIDYgMTIgTCA2IDExIEwgNSAxMSBMIDUgMTIgTCA0IDEyIEwgNCAxMyBMIDIgMTMgTCAyIDEyIEwgMSAxMiBMIDEgMTAgTCAwIDEwIEwgMCA5IEwgMSA5IEwgMSAxMCBMIDIgMTAgTCAyIDEyIEwgNCAxMiBMIDQgMTEgTCAzIDExIEwgMyAxMCBMIDQgMTAgTCA0IDMgTCA1IDMgTCA1IDIgTCA2IDIgTCA2IDEgTCAxMCAxIEwgMTAgMiBMIDExIDIgTCAxMSAzIEwgMTIgMyBMIDEyIDQgTCAxMSA0IEwgMTEgNiBMIDEyIDYgWiBNIDEwIDQgTCAxMCAzIEwgMTEgMyBMIDExIDQgTCAxMCA0IFogTSAxMCA0IEwgMTAgNiBMIDkgNiBMIDkgNCBMIDEwIDQgWiBNIDE0IDEyIEwgMTMgMTIgTCAxMyAxMyBMIDE1IDEzIEwgMTUgMTAgTCAxNCAxMCBMIDE0IDEyIFogTSAxNSAxMCBMIDE2IDEwIEwgMTYgOSBMIDE1IDkgTCAxNSAxMCBaIE0gOCA4IEwgOSA4IEwgOSA3IEwgOCA3IEwgOCA4IFogTSA2IDYgTCA1IDYgTCA1IDQgTCA2IDQgTCA2IDMgTCA3IDMgTCA3IDQgTCA4IDQgTCA4IDYgTCA3IDYgTCA3IDQgTCA2IDQgTCA2IDYgWiIvPgo8L3N2Zz4K&style=for-the-badge)](https://www.npmjs.com/package/homebridge-wled-kit)
 [![verified-by-homebridge](https://img.shields.io/badge/homebridge-verified-blueviolet?color=%23491F59&style=for-the-badge&logoColor=%23FFFFFF&logo=homebridge)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
@@ -543,6 +547,10 @@ Homebridge caches installed plugins by version. **Always bump the version in `pa
 4. **Restart Homebridge** and hard-reload the Config UI X page in the browser to confirm the new version is active.
 
 Without the version bump, you cannot reliably confirm that your local changes are what Homebridge is running.
+
+### Optional: remote sync to a Homebridge server
+
+If you develop against a remote machine (for example a Raspberry Pi), you can keep personal rsync scripts in a gitignored `.local/` folder. See `scripts/pi.env.example` and `scripts/pi-sync.example.sh` for a starting point — copy and adapt them locally; they are not part of the published plugin.
 
 ### Available Scripts
 

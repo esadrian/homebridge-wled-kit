@@ -122,6 +122,8 @@ describe('wledUtils', () => {
         .toEqual(global.timers);
       expect(resolveNightlightConfig({ nightlight: { enabled: false, timers: [{ name: '1m', seconds: 60 }] } }, global))
         .toEqual({ enabled: false, timers: [{ name: '1m', seconds: 60 }] });
+      expect(resolveNightlightConfig({ nightlight: { enabled: true, timers: [{ name: '', seconds: null }] } }, global))
+        .toEqual({ enabled: true, timers: [] });
     });
   });
 

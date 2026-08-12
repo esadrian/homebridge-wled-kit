@@ -269,6 +269,33 @@
       margin-bottom: 0.2rem;
       font-weight: 400;
     }
+    .timer-preset-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem 0.5rem;
+      margin-top: 0.35rem;
+    }
+    .timer-preset-label {
+      flex: 0 0 100%;
+      margin-bottom: 0.1rem;
+    }
+    @media (min-width: 420px) {
+      .timer-preset-label {
+        flex: 0 0 auto;
+        margin-bottom: 0;
+      }
+    }
+    .timer-preset-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+    .timer-preset-btn {
+      --bs-btn-padding-y: 0.2rem;
+      --bs-btn-padding-x: 0.55rem;
+      --bs-btn-font-size: 0.78rem;
+    }
 
     .device-config {
       display: grid;
