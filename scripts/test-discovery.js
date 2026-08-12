@@ -4,7 +4,7 @@
  * Test script to diagnose WLED discovery issues
  */
 
-const { WLEDDiscoveryService } = require('./dist/discoveryService');
+const { WLEDDiscoveryService } = require('../dist/discovery/discoveryService');
 const axios = require('axios');
 
 // Create a simple logger

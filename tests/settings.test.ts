@@ -1,4 +1,4 @@
-import { PLATFORM_NAME, PLUGIN_NAME } from '../src/settings';
+import { PLATFORM_NAME, PLUGIN_NAME } from '../src/shared/settings';
 
 describe('Settings', () => {
   describe('Constants', () => {

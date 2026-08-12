@@ -1,7 +1,16 @@
-import { HomebridgePluginUiServer, RequestError } from '@homebridge/plugin-ui-utils';
+import { HomebridgePluginUiServer } from '@homebridge/plugin-ui-utils';
+import axios from 'axios';
 
-// Define interfaces to avoid importing from src
-interface DiscoveredWLEDDevice {
+// Runtime requires from compiled plugin dist (sibling of homebridge-ui/)
+const {
+  parsePresetsRaw,
+  fetchWledInfo,
+  isWledCachedAccessory,
+} = require('../shared/wledUtils');
+const { HyperHDRClient } = require('../device/hyperHDRClient');
+
+/** Shape matches `DiscoveredWLEDDevice` from `src/discovery/discoveryService`. */
+type DiscoveredWLEDDevice = {
   name: string;
   host: string;
   port: number;
@@ -12,7 +21,7 @@ interface DiscoveredWLEDDevice {
     macAddress: string;
     ledCount: number;
   };
-}
+};
 
 /**
  * Custom UI Server for discovering and managing WLED devices
@@ -26,7 +35,6 @@ class PluginUiServer extends HomebridgePluginUiServer {
   constructor() {
     super();
 
-    // Setup request handlers
     this.onRequest('/test', async () => {
       return { status: 'ok', message: 'Test endpoint works!' };
     });
@@ -37,13 +45,16 @@ class PluginUiServer extends HomebridgePluginUiServer {
     this.onRequest('/cached-accessories', this.handleGetCachedAccessories.bind(this));
     this.onRequest('/remove-cached-accessory', this.handleRemoveCachedAccessory.bind(this));
     this.onRequest('/get-presets', this.handleGetPresets.bind(this));
+    this.onRequest('/ping-device', this.handlePingDevice.bind(this));
+    this.onRequest('/disable-sync', this.handleDisableSync.bind(this));
+    this.onRequest('/add-by-ip', this.handleAddByIp.bind(this));
+    this.onRequest('/ping-hyperhdr', this.handlePingHyperHDR.bind(this));
+    this.onRequest('/get-effects', this.handleGetEffects.bind(this));
 
-    // Start the UI server immediately - don't wait for discovery service
     process.nextTick(() => {
       this.ready();
     });
 
-    // Initialize discovery service in background (non-blocking)
     this.initializeDiscoveryService().then(() => {
       this.isInitialized = true;
     }).catch((error) => {
@@ -51,31 +62,23 @@ class PluginUiServer extends HomebridgePluginUiServer {
     });
   }
 
-  /**
-   * Initialize the discovery service by loading it from the compiled dist
-   */
   private async initializeDiscoveryService() {
     try {
-      // Import the compiled discovery service
-      const { WLEDDiscoveryService } = require('../discoveryService');
+      const { WLEDDiscoveryService } = require('../discovery/discoveryService');
 
-      // Create a simple logger for the discovery service
       const logger = {
         info: (...args: any[]) => console.log('[Discovery]', ...args),
         warn: (...args: any[]) => console.warn('[Discovery]', ...args),
         error: (...args: any[]) => console.error('[Discovery]', ...args),
-        debug: (...args: any[]) => {}, // Suppress debug logs
+        debug: (..._args: any[]) => {},
         log: (...args: any[]) => console.log('[Discovery]', ...args),
         success: (...args: any[]) => console.log('[Discovery Success]', ...args),
       };
 
-      // Initialize the discovery service (but don't start it yet)
       this.discoveryService = new WLEDDiscoveryService(logger);
 
-      // Register discovery listener
       this.discoveryService.addDiscoveryListener((devices: DiscoveredWLEDDevice[]) => {
         this.discoveredDevices = devices;
-        // Push update to connected clients
         this.pushEvent('discoveredDevices', devices);
       });
     } catch (error) {
@@ -84,9 +87,6 @@ class PluginUiServer extends HomebridgePluginUiServer {
     }
   }
 
-  /**
-   * Handle a request to start device discovery
-   */
   async handleDiscover() {
     if (!this.isInitialized || !this.discoveryService) {
       return {
@@ -104,15 +104,12 @@ class PluginUiServer extends HomebridgePluginUiServer {
     }
 
     try {
-      // Clear any previous devices to show fresh results
       this.discoveredDevices = [];
       this.discoveryService.clearDiscoveredDevices();
 
       this.isDiscovering = true;
       this.discoveryService.startDiscovery();
 
-      // Set a timer to mark discovery as complete after reasonable discovery time
-      // Increased to 70s to allow for synchronous device checking (60s discovery + 10s buffer)
       setTimeout(() => {
         this.isDiscovering = false;
         if (this.discoveryService) {
@@ -120,7 +117,6 @@ class PluginUiServer extends HomebridgePluginUiServer {
         }
       }, 70000);
 
-      // Return immediately - frontend will poll for updates
       return {
         status: 'started',
         devices: this.discoveredDevices,
@@ -136,9 +132,6 @@ class PluginUiServer extends HomebridgePluginUiServer {
     }
   }
 
-  /**
-   * Handle a request to get discovered devices
-   */
   async handleGetDevices() {
     return {
       devices: this.discoveredDevices,
@@ -146,9 +139,6 @@ class PluginUiServer extends HomebridgePluginUiServer {
     };
   }
 
-  /**
-   * Handle a request to stop discovery
-   */
   async handleStopDiscovery() {
     if (!this.discoveryService) {
       throw new Error('Discovery service not initialized');
@@ -163,43 +153,54 @@ class PluginUiServer extends HomebridgePluginUiServer {
     };
   }
 
-  /**
-   * Handle a request to get cached accessories from Homebridge
-   */
+  private listCachedAccessoryFiles(accessoriesDir: string): string[] {
+    const fs = require('fs');
+    if (!fs.existsSync(accessoriesDir)) {
+      return [];
+    }
+    return fs.readdirSync(accessoriesDir).filter((f: string) =>
+      f === 'cachedAccessories' || f.startsWith('cachedAccessories.'),
+    );
+  }
+
   async handleGetCachedAccessories() {
     try {
       const fs = require('fs');
       const path = require('path');
 
-      // Get the Homebridge storage path
       const storagePath = this.homebridgeStoragePath;
-      const cachedAccessoriesPath = path.join(storagePath, 'accessories', 'cachedAccessories');
+      const accessoriesDir = path.join(storagePath, 'accessories');
+      const files = this.listCachedAccessoryFiles(accessoriesDir);
 
-      if (!fs.existsSync(cachedAccessoriesPath)) {
-        return { accessories: [] };
+      const all: any[] = [];
+      for (const file of files) {
+        try {
+          const raw = JSON.parse(fs.readFileSync(path.join(accessoriesDir, file), 'utf8'));
+          if (Array.isArray(raw)) {
+            all.push(...raw);
+          }
+        } catch (e) {
+          console.error(`[UI Server] Failed reading ${file}:`, e);
+        }
       }
 
-      // Read the cached accessories file
-      const cachedData = JSON.parse(fs.readFileSync(cachedAccessoriesPath, 'utf8'));
-
-      // Filter for WLED plugin accessories (accept new + legacy plugin/platform names)
-      const wledAccessories = cachedData.filter((accessory: any) =>
-        accessory.plugin === 'homebridge-wled-kit' ||
-        accessory.plugin === 'homebridge-simpler-wled' ||
-        accessory.platform === 'WLED Kit' ||
-        accessory.platform === 'Simpler WLED' ||
-        accessory.platform === 'WLED'
-      );
-
-      // Extract relevant device information
-      const devices = wledAccessories.map((accessory: any) => ({
-        name: accessory.displayName || accessory.context?.device?.name || 'Unknown',
-        host: accessory.context?.device?.host || 'Unknown',
-        port: accessory.context?.device?.port || 80,
-        uuid: accessory.UUID,
-        usePresetService: accessory.context?.device?.usePresetService !== false,
-        useWebSockets: accessory.context?.device?.useWebSockets !== false,
-      }));
+      const wledAccessories = all.filter(isWledCachedAccessory);
+      const seen = new Set<string>();
+      const devices = [];
+      for (const accessory of wledAccessories) {
+        const host = accessory.context?.device?.host || 'Unknown';
+        const key = `${host}|${accessory.UUID}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        devices.push({
+          name: accessory.displayName || accessory.context?.device?.name || 'Unknown',
+          host,
+          port: accessory.context?.device?.port || 80,
+          uuid: accessory.UUID,
+          usePresetService: accessory.context?.device?.usePresetService !== false,
+          useWebSockets: accessory.context?.device?.useWebSockets !== false,
+        });
+      }
 
       return { accessories: devices };
     } catch (error: any) {
@@ -211,48 +212,185 @@ class PluginUiServer extends HomebridgePluginUiServer {
     }
   }
 
-  /**
-   * Handle a request to remove a cached accessory by host
-   */
   async handleRemoveCachedAccessory(payload: { host: string }) {
     try {
       const fs = require('fs');
       const path = require('path');
 
       const storagePath = this.homebridgeStoragePath;
-      const cachedAccessoriesPath = path.join(storagePath, 'accessories', 'cachedAccessories');
+      const accessoriesDir = path.join(storagePath, 'accessories');
+      const files = this.listCachedAccessoryFiles(accessoriesDir);
+      let removed = 0;
 
-      if (!fs.existsSync(cachedAccessoriesPath)) {
-        return { status: 'ok', removed: 0 };
+      for (const file of files) {
+        const filePath = path.join(accessoriesDir, file);
+        try {
+          const cachedData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+          if (!Array.isArray(cachedData)) continue;
+          const filtered = cachedData.filter((accessory: any) => {
+            const matchesHost = accessory.context?.device?.host === payload.host;
+            return !(isWledCachedAccessory(accessory) && matchesHost);
+          });
+          removed += cachedData.length - filtered.length;
+          fs.writeFileSync(filePath, JSON.stringify(filtered));
+        } catch (e) {
+          console.error(`[UI Server] Failed updating ${file}:`, e);
+        }
       }
 
-      const cachedData = JSON.parse(fs.readFileSync(cachedAccessoriesPath, 'utf8'));
-
-      const filtered = cachedData.filter((accessory: any) => {
-        const isWled = accessory.plugin === 'homebridge-wled-kit' ||
-          accessory.plugin === 'homebridge-simpler-wled' ||
-          accessory.platform === 'WLED Kit' ||
-          accessory.platform === 'Simpler WLED' ||
-          accessory.platform === 'WLED';
-        const matchesHost = accessory.context?.device?.host === payload.host;
-        return !(isWled && matchesHost);
-      });
-
-      fs.writeFileSync(cachedAccessoriesPath, JSON.stringify(filtered));
-
-      return { status: 'ok', removed: cachedData.length - filtered.length };
+      return { status: 'ok', removed };
     } catch (error: any) {
       console.error('[UI Server] Error removing cached accessory:', error);
       return { status: 'error', message: error.message };
     }
   }
 
-  /**
-   * Handle a request to get presets from a WLED device
-   */
+  private async readSyncStatus(host: string, port: number): Promise<{
+    sendEnabled: boolean;
+    recvEnabled: boolean;
+    group: number | null;
+  } | null> {
+    try {
+      const response = await axios.get(`http://${host}:${port}/json/cfg`, { timeout: 3000 });
+      const sync = response.data?.if?.sync || {};
+      const send = sync.send || {};
+      const recv = sync.recv || {};
+      const recvEnabled = !!(recv.bri || recv.col || recv.fx || recv.pal || recv.seg || recv.sb);
+      return {
+        sendEnabled: send.en === true,
+        recvEnabled,
+        group: typeof send.grp === 'number' ? send.grp : (typeof recv.grp === 'number' ? recv.grp : null),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async handlePingDevice(payload: { host: string; port?: number }) {
+    try {
+      const host = payload?.host;
+      const port = payload?.port || 80;
+
+      if (!host) {
+        return { online: false, message: 'Host is required' };
+      }
+
+      const info = await fetchWledInfo(host, port, 3000);
+      if (!info) {
+        return { online: false, message: 'Unreachable' };
+      }
+      const sync = await this.readSyncStatus(host, port);
+      return {
+        online: true,
+        version: info.version,
+        mac: info.mac,
+        ledCount: info.ledCount,
+        segmentCount: info.segmentCount,
+        sync,
+      };
+    } catch (error: any) {
+      return {
+        online: false,
+        message: error?.code || error?.message || 'Unreachable',
+      };
+    }
+  }
+
+  async handleDisableSync(payload: { host: string; port?: number }) {
+    try {
+      const host = (payload?.host || '').trim();
+      const port = payload?.port || 80;
+      if (!host) {
+        return { status: 'error', message: 'Host is required' };
+      }
+
+      await axios.post(`http://${host}:${port}/json/cfg`, {
+        if: {
+          sync: {
+            send: { en: false, dir: false, btn: false, va: false, hue: false },
+            recv: { bri: false, col: false, fx: false, pal: false, seg: false, sb: false },
+          },
+        },
+      }, { timeout: 5000 });
+
+      const sync = await this.readSyncStatus(host, port);
+      const stillActive = !!(sync && (sync.sendEnabled || sync.recvEnabled));
+      return {
+        status: stillActive ? 'error' : 'ok',
+        message: stillActive
+          ? 'WLED did not clear sync settings'
+          : 'UDP Sync disabled on this device',
+        sync,
+      };
+    } catch (error: any) {
+      return {
+        status: 'error',
+        message: error?.code || error?.message || 'Failed to disable sync',
+      };
+    }
+  }
+
+  async handleAddByIp(payload: { host: string; port?: number }) {
+    try {
+      if (!this.isInitialized || !this.discoveryService) {
+        return { status: 'error', message: 'Discovery service not ready' };
+      }
+      const host = (payload?.host || '').trim();
+      const port = payload?.port || 80;
+      if (!host) {
+        return { status: 'error', message: 'Host is required' };
+      }
+      const device = await this.discoveryService.addDeviceByHost(host, port);
+      if (!device) {
+        return { status: 'error', message: 'No WLED device responded at that address' };
+      }
+      this.discoveredDevices = this.discoveryService.getDiscoveredDevices();
+      this.pushEvent('discoveredDevices', this.discoveredDevices);
+      return { status: 'success', device };
+    } catch (error: any) {
+      return { status: 'error', message: error?.message || 'Failed to add device' };
+    }
+  }
+
+  async handlePingHyperHDR(payload: {
+    host: string;
+    port?: number;
+    token?: string;
+    component?: string;
+  }) {
+    try {
+      const host = (payload?.host || '').trim();
+      if (!host) {
+        return { online: false, message: 'Host is required' };
+      }
+      return await HyperHDRClient.pingOnce({
+        host,
+        port: payload?.port,
+        token: payload?.token,
+        component: payload?.component,
+      });
+    } catch (error: any) {
+      return { online: false, message: error?.code || error?.message || 'Unreachable' };
+    }
+  }
+
+  async handleGetEffects(payload: { host: string; port?: number }) {
+    try {
+      const host = payload?.host;
+      const port = payload?.port || 80;
+      if (!host) {
+        return { status: 'error', message: 'Host is required', effects: [] };
+      }
+      const response = await axios.get(`http://${host}:${port}/json/effects`, { timeout: 8000 });
+      const effects = Array.isArray(response.data) ? response.data : [];
+      return { status: 'success', effects };
+    } catch (error: any) {
+      return { status: 'error', message: error?.message || 'Failed to fetch effects', effects: [] };
+    }
+  }
+
   async handleGetPresets(payload: { host: string; port: number }) {
     try {
-      const axios = require('axios');
       const { host, port } = payload;
 
       if (!host) {
@@ -265,40 +403,19 @@ class PluginUiServer extends HomebridgePluginUiServer {
 
       const presetPort = port || 80;
       const url = `http://${host}:${presetPort}/presets.json`;
-
-      console.log(`[UI Server] Fetching presets from ${url}`);
-
       const response = await axios.get(url, { timeout: 10000 });
-      const rawPresets = response.data || {};
+      const parsed = parsePresetsRaw(response.data || {}, { skipZero: true });
 
-      // Remove metadata entries
-      delete rawPresets._name;
-      delete rawPresets._type;
-
-      // Format presets into a more useful structure
-      const presets: Record<string, { id: string; name: string; quickLabel?: string }> = {};
-
-      for (const [id, data] of Object.entries(rawPresets)) {
-        // Preset 0 is reserved by WLED/this plugin as "no preset / manual mode".
-        // Some devices may expose an empty "0" entry; never show/manage it in the UI.
-        if (id === '0') {
-          continue;
-        }
-
-        if (typeof data === 'object' && data !== null) {
-          // Extract name (n) and quick label (ql) for the preset
-          const n = ('n' in data && typeof data.n === 'string') ? data.n : `Preset ${id}`;
-          const ql = ('ql' in data && typeof data.ql === 'string') ? data.ql : '';
-
-          presets[id] = {
-            id,
-            name: n,
-            quickLabel: ql || undefined,
-          };
-        }
+      const presets: Record<string, { id: string; name: string; quickLabel?: string; data: any }> = {};
+      for (const [id, preset] of Object.entries(parsed) as Array<[string, { name: string; quickLabel: string; data: any }]>) {
+        const n = preset.data?.n || `Preset ${id}`;
+        presets[id] = {
+          id,
+          name: n,
+          quickLabel: preset.quickLabel || undefined,
+          data: preset.data,
+        };
       }
-
-      console.log(`[UI Server] Found ${Object.keys(presets).length} presets for ${host}`);
 
       return {
         status: 'success',
@@ -324,8 +441,6 @@ class PluginUiServer extends HomebridgePluginUiServer {
   }
 }
 
-// Export the server for Homebridge Config UI X
-// Instantiate at module level (this is what works with Config UI X)
 const serverInstance = new PluginUiServer();
 
 export default serverInstance;

@@ -29,8 +29,8 @@ A Homebridge plugin for controlling WLED-powered LED strips through HomeKit.
 
 ### Prerequisites
 
-- [Homebridge](https://github.com/homebridge/homebridge/wiki) v1.3.0 or higher
-- Node.js v14.0.0 or higher
+- [Homebridge](https://github.com/homebridge/homebridge) v1.8.0 or higher (including Homebridge 2.x)
+- Node.js v20, v22, or v24 (Active / Maintenance LTS)
 - WLED firmware v0.13+ (recommended for WebSocket support)
 
 ### Installation Steps
@@ -47,14 +47,15 @@ A Homebridge plugin for controlling WLED-powered LED strips through HomeKit.
 
 ### Quick Start with Discovery UI (Recommended)
 
-If you're using [Homebridge Config UI X](https://github.com/oznu/homebridge-config-ui-x), the easiest way to set up your WLED devices is through the interactive discovery interface:
+If you're using [Homebridge Config UI X](https://github.com/homebridge/homebridge-config-ui-x), the easiest way to set up your WLED devices is through the interactive discovery interface:
 
 1. Navigate to the **Plugins** tab in Homebridge Config UI X
 2. Find **WLED Kit** and click **Settings**
 3. **Use the Discovery UI** to find WLED devices on your network:
-   - Click "Start Discovery" to scan for devices
+   - Open **Add device** → **Scan network**
+   - Click **Start scan** to discover devices
    - View device details (IP, version, MAC address, LED count)
-   - Click "Add to Configuration" to automatically add devices
+   - Add devices from the results list
 4. Configure default settings for your devices (optional)
 5. Click **Save** to apply your changes
 6. Restart Homebridge
@@ -146,47 +147,47 @@ Complete configuration showing all available options:
 
 These settings apply to the entire platform:
 
-| Property | Type | Description | Default | Required |
-|----------|------|-------------|---------|----------|
-| `platform` | string | Must be `"WLED Kit"` | - | **Yes** |
-| `name` | string | Name of the platform in Homebridge | `"WLED Kit"` | **Yes** |
-| `logLevel` | string | Logging level: `"error"`, `"warn"`, `"info"`, or `"debug"` | `"info"` | No |
-| `autoStopDiscoveryWhenAllConfigured` | boolean | In the Custom UI Discovery tab, automatically stop discovery once all discovered devices are already configured | `true` | No |
-| `tvNameSuffix` | string | Suffix appended to the TV/preset accessory name | `"Presets"` | No |
-| `customInputLabel` | string | Label shown for the manual/no-preset input (Identifier `0`) in the TV input list | `"Custom"` | No |
+| Property                             | Type    | Description                                                                                                     | Default      | Required |
+| ------------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------- | ------------ | -------- |
+| `platform`                           | string  | Must be `"WLED Kit"`                                                                                            | -            | **Yes**  |
+| `name`                               | string  | Name of the platform in Homebridge                                                                              | `"WLED Kit"` | **Yes**  |
+| `logLevel`                           | string  | Filters this plugin's log output (`error`/`warn`/`info`/`debug`) in addition to Homebridge logging              | `"info"`     | No       |
+| `autoStopDiscoveryWhenAllConfigured` | boolean | In the Custom UI Discovery tab, automatically stop discovery once all discovered devices are already configured | `true`       | No       |
+| `tvNameSuffix`                       | string  | Suffix appended to the TV/preset accessory name                                                                 | `"Presets"`  | No       |
+| `customInputLabel`                   | string  | Label shown for the manual/no-preset input (Identifier `0`) in the TV input list                                | `"Custom"`   | No       |
 
 ### Default Settings Section
 
 Settings in `defaultSettingsSection` apply to devices added through the Discovery UI:
 
-| Property | Type | Description | Default | Required |
-|----------|------|-------------|---------|----------|
-| `defaultUsePresetService` | boolean | Add preset controls for discovered devices | `true` | No |
-| `defaultUseWebSockets` | boolean | Use WebSockets for discovered devices | `true` | No |
+| Property                  | Type    | Description                                | Default | Required |
+| ------------------------- | ------- | ------------------------------------------ | ------- | -------- |
+| `defaultUsePresetService` | boolean | Add preset controls for discovered devices | `true`  | No       |
+| `defaultUseWebSockets`    | boolean | Use WebSockets for discovered devices      | `true`  | No       |
 
 ### Manual Device Configuration
 
 Devices in `manualDevicesSection.devices` array support these properties:
 
-| Property | Type | Description | Default | Required |
-|----------|------|-------------|---------|----------|
-| `name` | string | Display name for the device in HomeKit | - | **Yes** |
-| `host` | string | IP address or hostname of the WLED device | - | **Yes** |
-| `port` | integer | HTTP port of the WLED device | `80` | No |
-| `enabled` | boolean | Enable/disable device without removing from config | `true` | No |
+| Property  | Type    | Description                                        | Default | Required |
+| --------- | ------- | -------------------------------------------------- | ------- | -------- |
+| `name`    | string  | Display name for the device in HomeKit             | -       | **Yes**  |
+| `host`    | string  | IP address or hostname of the WLED device          | -       | **Yes**  |
+| `port`    | integer | HTTP port of the WLED device                       | `80`    | No       |
+| `enabled` | boolean | Enable/disable device without removing from config | `true`  | No       |
 
 #### Device Settings
 
 Settings in `deviceSettings` object control individual device behavior:
 
-| Property | Type | Description | Default | Required |
-|----------|------|-------------|---------|----------|
-| `usePresetService` | boolean | Add preset selector controls | `true` | No |
-| `singleAccessoryWithTV` | boolean | Expose Light + Presets as a single HomeKit accessory. Requires restart; HomeKit may cache old accessories | `false` | No |
-| `useWebSockets` | boolean | Use WebSockets for real-time updates (requires WLED v0.13+) | `true` | No |
-| `enabledPresets` | array | Array of preset IDs to expose (e.g., `["1", "2", "3"]`). Leave empty to show all. Configure via UI. | `[]` | No |
-| `nightlight` | object | Per-device nightlight timer settings — see [Nightlight Timers](#nightlight-timers) | - | No |
-| `hyperHDR` | object | HyperHDR sync settings — see [HyperHDR Integration](#hyperhdr-integration) | - | No |
+| Property                | Type    | Description                                                                                               | Default | Required |
+| ----------------------- | ------- | --------------------------------------------------------------------------------------------------------- | ------- | -------- |
+| `usePresetService`      | boolean | Add preset selector controls                                                                              | `true`  | No       |
+| `singleAccessoryWithTV` | boolean | Expose Light + Presets as a single HomeKit accessory. Requires restart; HomeKit may cache old accessories | `false` | No       |
+| `useWebSockets`         | boolean | Use WebSockets for real-time updates (requires WLED v0.13+)                                               | `true`  | No       |
+| `enabledPresets`        | array   | Array of preset IDs to expose (e.g., `["1", "2", "3"]`). Leave empty to show all. Configure via UI.       | `[]`    | No       |
+| `nightlight`            | object  | Per-device nightlight timer settings — see [Nightlight Timers](#nightlight-timers)                        | -       | No       |
+| `hyperHDR`              | object  | HyperHDR sync settings — see [HyperHDR Integration](#hyperhdr-integration)                                | -       | No       |
 
 ## Feature Details
 
@@ -243,15 +244,15 @@ A dedicated Switch (or Outlet) accessory named "HyperHDR" (configurable) is adde
 }
 ```
 
-| Property | Type | Description | Default |
-|----------|------|-------------|---------|
-| `enabled` | boolean | Enable HyperHDR sync | `false` |
-| `host` | string | IP address or hostname of the HyperHDR instance | - |
-| `port` | integer | HyperHDR JSON-RPC port | `8090` |
-| `component` | string | Component to toggle: `"LEDDEVICE"` or `"ALL"` | `"LEDDEVICE"` |
-| `token` | string | Auth token (leave empty if not required) | - |
-| `serviceType` | string | HomeKit service type: `"Switch"` or `"Outlet"` | `"Switch"` |
-| `switchName` | string | Name shown in HomeKit for the HyperHDR accessory | `"HyperHDR"` |
+| Property      | Type    | Description                                      | Default       |
+| ------------- | ------- | ------------------------------------------------ | ------------- |
+| `enabled`     | boolean | Enable HyperHDR sync                             | `false`       |
+| `host`        | string  | IP address or hostname of the HyperHDR instance  | -             |
+| `port`        | integer | HyperHDR JSON-RPC port                           | `8090`        |
+| `component`   | string  | Component to toggle: `"LEDDEVICE"` or `"ALL"`    | `"LEDDEVICE"` |
+| `token`       | string  | Auth token (leave empty if not required)         | -             |
+| `serviceType` | string  | HomeKit service type: `"Switch"` or `"Outlet"`   | `"Switch"`    |
+| `switchName`  | string  | Name shown in HomeKit for the HyperHDR accessory | `"HyperHDR"`  |
 
 HyperHDR errors are logged as warnings and never block WLED operation.
 
@@ -260,6 +261,7 @@ HyperHDR errors are logged as warnings and never block WLED operation.
 By default, this plugin creates preset controls for each WLED device, allowing you to switch between your saved WLED presets directly from HomeKit.
 
 **Features:**
+
 - Preset selector appears as an input source selector in HomeKit (similar to TV inputs)
 - Each WLED preset appears as a selectable input
 - Includes a manual/no-preset input (Identifier `0`) labeled `Custom` (configurable via `customInputLabel`)
@@ -272,6 +274,7 @@ By default, this plugin creates preset controls for each WLED device, allowing y
 If `deviceSettings.singleAccessoryWithTV` is enabled, the Light + TV input selector are exposed under a single HomeKit accessory. You may need to remove cached accessories in the Home app after enabling/disabling this due to HomeKit caching.
 
 **Configuration - Show All Presets:**
+
 ```json
 {
   "deviceSettings": {
@@ -281,6 +284,7 @@ If `deviceSettings.singleAccessoryWithTV` is enabled, the Light + TV input selec
 ```
 
 **Configuration - Show Specific Presets Only:**
+
 ```json
 {
   "deviceSettings": {
@@ -294,7 +298,8 @@ If `deviceSettings.singleAccessoryWithTV` is enabled, the Light + TV input selec
 
 **Disabling Presets:**
 If you don't want preset controls, set `usePresetService` to `false`:
-```json
+
+````json
 {
   "deviceSettings": {
     "usePresetService": false
@@ -324,7 +329,7 @@ WebSockets are enabled by default. To disable:
     "pollInterval": 5
   }
 }
-```
+````
 
 **Fallback Behavior:**
 If WebSockets are unavailable or disabled, the plugin automatically falls back to HTTP polling using the configured `pollInterval`.
@@ -336,22 +341,42 @@ The plugin offers two ways to find WLED devices on your network:
 #### 1. Interactive Discovery UI (Recommended)
 
 Use the Custom Plugin UI in Homebridge Config UI X to manually trigger discovery scans:
+
 - On-demand scanning - only runs when you click "Start Discovery"
 - Real-time results showing device details
 - One-click device addition to configuration
 - No continuous background scanning to reduce network load
 
 **Discovery protocols used:**
-- **mDNS (Bonjour)** - Discovers WLED devices advertising via mDNS
-- **SSDP (UPnP)** - Discovers WLED devices responding to SSDP queries
+
+- **mDNS (Bonjour)** - Discovers WLED devices advertising as `_wled._tcp`
+- **WLED UDP sync (port 21324)** - Discovers devices that announce on WLED's UDP notification/sync port (internally labeled `ssdp` in logs/UI for historical reasons; this is **not** classic UPnP/SSDP)
 
 #### 2. Manual Configuration
 
 For devices that can't be discovered automatically, or if you prefer explicit configuration:
+
 - Add devices directly to `config.json`
 - Works for devices on different subnets or VLANs
-- Useful for devices with mDNS/SSDP disabled
+- Useful for devices with mDNS/UDP discovery disabled
 - Recommended for static, permanent installations
+
+### Child Bridge Notes
+
+If you run this plugin as a **child bridge**:
+
+- Accessories are stored under that child bridge's cache, separate from the main Homebridge bridge
+- Renaming devices, toggling `singleAccessoryWithTV`, or changing preset exposure may require a Homebridge restart
+- After structural changes (combined vs split accessories), remove leftover accessories in the Home app if they do not disappear automatically
+- The Custom UI reads all `cachedAccessories` / `cachedAccessories.<MAC>` files so child-bridge caches are included
+
+### Optional: Segments & Effects
+
+Per-device flags in Advanced options / `deviceSettings`:
+
+- `exposeSegments: true` — separate Light accessories for segments 1+ (max 8)
+- `exposeEffects: true` — switches for effects (optionally limit with `enabledEffects: ["1","5",...]`, max 20)
+- HyperHDR `pollInterval` (seconds) — optional bidirectional HomeKit sync of the HyperHDR switch
 
 ## Troubleshooting
 
@@ -360,8 +385,9 @@ For devices that can't be discovered automatically, or if you prefer explicit co
 **Problem:** Discovery UI doesn't find your WLED devices
 
 **Solutions:**
+
 - Ensure your WLED devices are on the same network/subnet as your Homebridge server
-- Check that your network allows mDNS and SSDP traffic (some routers/firewalls block multicast)
+- Check that your network allows mDNS and UDP multicast/broadcast traffic (some routers/firewalls block it)
 - Update your WLED firmware to the latest version
 - Verify WLED web interface is accessible at `http://<device-ip>`
 - Try adding the device manually using its IP address in the configuration
@@ -371,6 +397,7 @@ For devices that can't be discovered automatically, or if you prefer explicit co
 **Problem:** Device appears in HomeKit but doesn't respond to commands
 
 **Solutions:**
+
 - Verify you can access the WLED web interface at `http://<device-ip>`
 - Check that the IP address and port are correctly configured
 - Ensure your WLED device is powered on and connected to WiFi
@@ -378,11 +405,24 @@ For devices that can't be discovered automatically, or if you prefer explicit co
 - Check Homebridge logs for error messages (`logLevel: "debug"` for detailed info)
 - Restart both the WLED device and Homebridge
 
+### Turning On One Light Turns On Others
+
+**Problem:** Toggling one HomeKit light also turns on other WLED devices
+
+**Cause:** This is usually **WLED UDP Sync**, not a Homebridge config bug. If Sync → Send is enabled on one controller and others receive the same sync group, power/brightness/color are broadcast across devices.
+
+**Solutions:**
+
+- In each WLED web UI: **Config → Sync Interfaces** — disable Send and uncheck Receive options (or use the plugin Devices tab **Disable sync** button when the warning appears)
+- Confirm devices are not duplicates of the same controller (same MAC under both an IP and a `.local` hostname)
+- `exposeSegments` creates multiple HomeKit lights for one controller; the main light still uses global power
+
 ### HomeKit Not Showing Real-time Updates
 
 **Problem:** Changes made in WLED web interface don't appear immediately in HomeKit
 
 **Solutions:**
+
 - Enable WebSockets if you're using WLED v0.13 or newer:
   ```json
   { "deviceSettings": { "useWebSockets": true } }
@@ -400,6 +440,7 @@ For devices that can't be discovered automatically, or if you prefer explicit co
 **Problem:** WLED presets don't show up or aren't updating in HomeKit
 
 **Solutions:**
+
 - Ensure `usePresetService` is set to `true` (it's enabled by default)
 - Create presets in your WLED device first (they must exist to be discovered)
 - If using `enabledPresets`, verify the preset IDs are correct (e.g., `["1", "2", "3"]`)
@@ -411,6 +452,7 @@ For devices that can't be discovered automatically, or if you prefer explicit co
 **Problem:** Homebridge running slowly or consuming excessive resources
 
 **Solutions:**
+
 - Enable WebSockets instead of polling when possible (reduces overhead)
 - Limit the number of enabled presets using `enabledPresets` array
 
@@ -419,6 +461,7 @@ For devices that can't be discovered automatically, or if you prefer explicit co
 **Problem:** Can't find the plugin or Custom UI in Homebridge Config UI X
 
 **Solutions:**
+
 - Ensure plugin is properly installed: `npm list -g homebridge-wled-kit`
 - Restart Homebridge Config UI X
 - Clear browser cache and reload the page
@@ -443,17 +486,20 @@ Then check Homebridge logs for detailed information about plugin operations.
 ### Setup
 
 1. **Clone this repository:**
+
    ```bash
    git clone https://github.com/esadrian/homebridge-wled-kit.git
    cd homebridge-wled-kit
    ```
 
 2. **Install dependencies:**
+
    ```bash
    npm install
    ```
 
 3. **Build the plugin:**
+
    ```bash
    npm run build
    ```
@@ -473,21 +519,27 @@ Homebridge caches installed plugins by version. **Always bump the version in `pa
    npm run build
    ```
 3. **Pack and install into Homebridge:**
+
    ```bash
    npm pack && sudo hb-service install homebridge-wled-kit-<new-version>.tgz
    ```
+
    Replace `<new-version>` with the exact version from `package.json` (for example `homebridge-wled-kit-3.2.0-local.2.tgz`).
 
    If `hb-service` is not on your `PATH`, use the one from this repo after `npm install`:
+
    ```bash
    npm pack
    sudo ./node_modules/.bin/hb-service install homebridge-wled-kit-<new-version>.tgz
    ```
+
    You can also install into the Homebridge storage folder directly:
+
    ```bash
    npm pack
    cd ~/.homebridge && npm install /path/to/homebridge-wled-kit/homebridge-wled-kit-<new-version>.tgz --save
    ```
+
 4. **Restart Homebridge** and hard-reload the Config UI X page in the browser to confirm the new version is active.
 
 Without the version bump, you cannot reliably confirm that your local changes are what Homebridge is running.
@@ -507,16 +559,12 @@ Without the version bump, you cannot reliably confirm that your local changes ar
 ### Project Structure
 
 - `src/` - TypeScript source files
-  - `platform.ts` - Main platform implementation
-  - `platformAccessory.ts` - Light-only accessory (Lightbulb service)
-  - `combinedAccessory.ts` - Single-accessory mode (Lightbulb + TV/presets)
-  - `presetsAccessory.ts` - Standalone preset selector (TV service)
-  - `nightlightAccessory.ts` - Nightlight timer switches
-  - `wledDevice.ts` - WLED device communication (HTTP + WebSocket)
-  - `hyperHDRClient.ts` - HyperHDR JSON-RPC client
-  - `discoveryService.ts` - mDNS and SSDP discovery
-  - `settings.ts` - Plugin constants
-- `homebridge-ui/` - Custom UI for Homebridge Config UI X
+  - `platform.ts` - Platform lifecycle + unified `registerDevice`
+  - `accessories/` - HomeKit accessories + shared controllers / radio switches
+  - `device/` - `wledDevice`, `hyperHDRClient`
+  - `discovery/` - mDNS / UDP discovery
+  - `shared/` - `wledUtils`, config types, `PlatformContext`, settings
+- `homebridge-ui/` - Custom UI (`public/index.html` + `styles.css` + `app.js`)
 - `tests/` - Unit tests
 - `config.schema.json` - Configuration schema for Homebridge Config UI X
 
@@ -537,6 +585,7 @@ npm run test:watch
 ### Contributing
 
 Contributions are welcome! Please:
+
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes

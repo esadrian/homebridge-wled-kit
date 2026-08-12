@@ -1,4 +1,4 @@
-import { WLEDDiscoveryService, DiscoveredWLEDDevice } from '../src/discoveryService';
+import { WLEDDiscoveryService, DiscoveredWLEDDevice } from '../src/discovery/discoveryService';
 import { MockLogger } from './mocks/homebridge';
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';

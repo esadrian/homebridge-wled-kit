@@ -32,7 +32,7 @@ This plugin includes a custom UI interface for discovering WLED devices on your 
    - WLED version
    - MAC address
    - Number of LEDs
-   - Discovery method (mDNS/SSDP/Direct)
+   - Discovery method (mDNS/UDP/Direct)
 
 ### Adding Devices to Configuration
 
@@ -74,7 +74,7 @@ The plugin uses multiple discovery protocols to find WLED devices:
 
 ### Direct Connection
 - Manually add devices by IP address through the UI
-- Useful for devices not discoverable via mDNS or SSDP
+- Useful for devices not discoverable via mDNS or WLED UDP
 - Good for devices on different subnets or with discovery disabled
 
 ## Troubleshooting
@@ -114,7 +114,7 @@ If you try to add a device that's already in your configuration, you'll see a wa
 1. When you click "Start Discovery", the UI server creates a WLEDDiscoveryService instance
 2. The service simultaneously:
    - Broadcasts mDNS queries for HTTP services
-   - Sends SSDP M-SEARCH requests to the network
+   - Sends WLED UDP discovery packets on port 21324 to the network
 3. As devices respond, they're validated by requesting `/json/info` from each device
 4. Device information is enriched with firmware version, MAC address, and LED configuration
 5. The UI updates in real-time as devices are discovered

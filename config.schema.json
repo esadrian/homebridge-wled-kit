@@ -25,7 +25,7 @@
           { "title": "Info", "enum": ["info"] },
           { "title": "Debug", "enum": ["debug"] }
         ],
-        "description": "Set the logging level for the plugin. Debug mode provides detailed information for troubleshooting."
+        "description": "Set the logging level for this plugin. Filters plugin log output in addition to Homebridge's own log settings."
       },
       "discoverySection": {
         "title": "Discovery Settings",
@@ -54,6 +54,14 @@
             "description": "Use WebSockets for real-time updates on automatically discovered devices (requires WLED v0.13+)",
             "type": "boolean",
             "default": true
+          },
+          "defaultPollInterval": {
+            "title": "HTTP Poll Interval (seconds)",
+            "description": "Polling interval used when WebSockets are disabled (or as fallback). Default: 10.",
+            "type": "integer",
+            "default": 10,
+            "minimum": 2,
+            "maximum": 300
           }
         }
       },
@@ -130,7 +138,7 @@
                 "host": {
                   "title": "IP Address or Hostname",
                   "type": "string",
-                  "format": "hostname"
+                  "description": "IPv4 address or mDNS hostname (for example 192.168.1.50 or wled-living.local)."
                 },
                 "port": {
                   "title": "Port",
@@ -144,11 +152,6 @@
                   "type": "boolean",
                   "default": true,
                   "description": "Enable or disable this device without removing it from configuration"
-                },
-                "firmwareVersion": {
-                  "title": "Firmware Version",
-                  "type": "string",
-                  "description": "WLED firmware version reported by the device (set automatically when adding via discovery)"
                 },
                 "deviceSettings": {
                   "type": "object",
@@ -198,7 +201,7 @@
                     },
                     "singleAccessoryWithTV": {
                       "title": "Single Accessory (TV Inputs)",
-                      "description": "Expose Light + Presets (TV input selector) as a single HomeKit accessory. Requires Homebridge restart and may require removing/re-adding accessories in the Home app due to HomeKit caching.",
+                      "description": "Expose Light + Presets (TV input selector) as a single HomeKit accessory. Requires a Homebridge restart. Afterwards, if the old TV accessory remains in the Home app: remove it (or the bridge) and re-add if needed — HomeKit caches accessory structure aggressively.",
                       "type": "boolean",
                       "default": false
                     },
@@ -207,6 +210,33 @@
                       "description": "Use WebSockets for real-time updates (requires WLED v0.13+)",
                       "type": "boolean",
                       "default": true
+                    },
+                    "exposeSegments": {
+                      "title": "Expose Segments",
+                      "description": "Create separate HomeKit Light accessories for WLED segments 1+ (max 8). Segment 0 remains the main light.",
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "exposeEffects": {
+                      "title": "Expose Effects",
+                      "description": "Create a HomeKit accessory with switches for selected effects (max 20).",
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "enabledEffects": {
+                      "title": "Enabled Effects",
+                      "description": "Effect indexes to expose when Expose Effects is enabled. Empty = first 20.",
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "default": []
+                    },
+                    "pollInterval": {
+                      "title": "HTTP Poll Interval (seconds)",
+                      "description": "Polling interval when WebSockets are disabled for this device. Default: 10.",
+                      "type": "integer",
+                      "default": 10,
+                      "minimum": 2,
+                      "maximum": 300
                     },
                     "enabledPresets": {
                       "title": "Enabled Presets",
@@ -222,7 +252,7 @@
                       "type": "object",
                       "properties": {
                         "enabled": { "title": "Enable HyperHDR Sync", "type": "boolean", "default": false },
-                        "host": { "title": "HyperHDR Host", "type": "string", "format": "hostname" },
+                        "host": { "title": "HyperHDR Host", "type": "string", "description": "IPv4 address or hostname of the HyperHDR instance." },
                         "port": { "title": "Port", "type": "integer", "default": 8090, "minimum": 1, "maximum": 65535 },
                         "component": {
                           "title": "Component", "type": "string", "default": "LEDDEVICE",
@@ -239,7 +269,14 @@
                             { "title": "Outlet", "enum": ["Outlet"] }
                           ]
                         },
-                        "switchName": { "title": "Name in HomeKit", "type": "string" }
+                        "switchName": { "title": "Name in HomeKit", "type": "string" },
+                        "pollInterval": {
+                          "title": "State Poll Interval (seconds)",
+                          "description": "Optional. When set (>=2), poll HyperHDR and update the HomeKit switch. Leave empty to disable.",
+                          "type": "integer",
+                          "minimum": 2,
+                          "maximum": 300
+                        }
                       }
                     }
                   }

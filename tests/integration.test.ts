@@ -3,7 +3,7 @@
  */
 
 import { WLEDPlatform } from '../src/platform';
-import { WLEDDevice } from '../src/wledDevice';
+import { WLEDDevice } from '../src/device/wledDevice';
 import { MockLogger, MockAPI, createMockPlatformConfig, createMockDeviceConfig } from './mocks/homebridge';
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
