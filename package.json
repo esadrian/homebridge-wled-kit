@@ -1,14 +1,16 @@
 {
   "name": "homebridge-wled-kit",
   "displayName": "Homebridge WLED Kit",
-  "version": "1.0.0-local.25",
+  "version": "1.0.0-local.30",
   "description": "Homebridge plugin for WLED LED controllers",
   "main": "dist/index.js",
   "files": [
     "dist",
     "config.schema.json",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "branding/icon.png",
+    "icon.png"
   ],
   "scripts": {
     "clean": "rm -rf dist coverage",
@@ -21,7 +23,7 @@
     "test:unit": "jest tests/wledDevice.test.ts tests/discoveryService.test.ts tests/platform.test.ts tests/settings.test.ts tests/platformAccessory.test.ts tests/nightlightAccessory.test.ts tests/hyperHDRClient.test.ts tests/combinedAccessory.test.ts tests/wledUtils.test.ts --forceExit",
     "prebuild": "npm run lint && npm run test:unit",
     "build": "npm run clean && tsc && npm run build:ui",
-    "build:ui": "tsc -p homebridge-ui/tsconfig.json && rm -rf dist/homebridge-ui/public && mkdir -p dist/homebridge-ui && cp -r homebridge-ui/public dist/homebridge-ui/",
+    "build:ui": "tsc -p homebridge-ui/tsconfig.json && cp branding/Homebridge_x_WLED.png homebridge-ui/public/Homebridge_x_WLED.png && rm -rf dist/homebridge-ui/public && mkdir -p dist/homebridge-ui && cp -r homebridge-ui/public dist/homebridge-ui/",
     "prepublishOnly": "npm run build",
     "watch": "tsc -w",
     "watch:ui": "npx --yes chokidar-cli 'homebridge-ui/**/*' -c 'npm run build:ui'"
@@ -52,6 +54,9 @@
   ],
   "author": {
     "name": "esadrian"
+  },
+  "homebridge": {
+    "pluginIcon": "https://raw.githubusercontent.com/esadrian/homebridge-wled-kit/main/branding/icon.png"
   },
   "license": "MIT",
   "homepage": "https://github.com/esadrian/homebridge-wled-kit#readme",

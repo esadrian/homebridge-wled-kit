@@ -42,27 +42,20 @@
       border-color: var(--wled-accent);
     }
 
-    /* Tabs */
-    #mainTabs {
-      border-bottom: 1px solid var(--bs-border-color);
-      gap: 0.15rem;
+    /* Plugin header (Govee / Camera FFmpeg pattern) */
+    .plugin-header {
+      margin: 0 0 0.35rem;
     }
-    #mainTabs .nav-link {
-      border: 0;
-      border-bottom: 2px solid transparent;
-      border-radius: 0;
-      padding: 0.55rem 0.85rem;
-      color: var(--bs-secondary-color);
+    .plugin-header-logo {
+      width: 60%;
+      max-width: 28rem;
+      height: auto;
+    }
+
+    /* Full-width tab bar — active tab uses host btn-elegant */
+    #menuWrapper .btn {
       font-weight: 500;
       font-size: 0.9rem;
-      margin-bottom: -1px;
-    }
-    #mainTabs .nav-link:hover { color: var(--bs-body-color); background: transparent; }
-    #mainTabs .nav-link.active {
-      color: var(--bs-body-color);
-      background: transparent;
-      border-bottom-color: var(--wled-accent);
-      font-weight: 600;
     }
 
     .page-toolbar {
@@ -295,6 +288,16 @@
       --bs-btn-padding-y: 0.2rem;
       --bs-btn-padding-x: 0.55rem;
       --bs-btn-font-size: 0.78rem;
+    }
+    .timer-overlap-alert:empty {
+      display: none;
+    }
+    .timer-overlap-alert-inner {
+      font-size: 0.85rem;
+      line-height: 1.35;
+    }
+    .timer-overlap-alert-inner .btn-close {
+      padding: 0.55rem;
     }
 
     .device-config {

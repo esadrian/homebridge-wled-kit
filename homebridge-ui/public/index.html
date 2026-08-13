@@ -4,6 +4,10 @@
 -->
 <link rel="stylesheet" href="styles.css">
 
+<p class="text-center plugin-header mb-0">
+  <img src="Homebridge_x_WLED.png" alt="Homebridge WLED Kit logo" class="plugin-header-logo">
+</p>
+
 <div id="pageIntro" class="text-center intro-panel d-none">
   <p class="lead mb-2">Thank you for installing <strong>WLED Kit</strong></p>
   <p class="grey-text mb-3">
@@ -18,193 +22,192 @@
   <button type="button" class="btn btn-primary" id="introContinueBtn">Continue →</button>
 </div>
 
-<div id="menuWrapper" class="d-none">
-  <div id="restartBanner" class="alert alert-warning restart-banner py-2 mb-3 align-items-center justify-content-between gap-2" style="display:none;" role="status">
-    <span class="small mb-0"><strong>Restart pending.</strong> Some changes need a Homebridge restart after you press Save.</span>
-    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="dismissRestartBanner()">Dismiss</button>
+<div id="menuWrapper" class="btn-group w-100 mb-0 d-none" role="group" aria-label="UI Menu">
+  <button type="button" class="btn btn-primary ml-0" id="menuSettings">Settings</button>
+  <button type="button" class="btn btn-primary" id="menuDevices">Devices</button>
+  <button type="button" class="btn btn-primary mr-0" id="menuSupport">Support</button>
+</div>
+
+<div id="restartBanner" class="alert alert-warning restart-banner py-2 mt-3 mb-0 align-items-center justify-content-between gap-2 d-none" role="status">
+  <span class="small mb-0"><strong>Restart pending.</strong> Some changes need a Homebridge restart after you press Save.</span>
+  <button type="button" class="btn btn-sm btn-outline-secondary" onclick="dismissRestartBanner()">Dismiss</button>
+</div>
+
+<div id="pageDevices" class="mt-4 d-none">
+  <div class="page-toolbar">
+    <p class="text-muted small mb-0">Enable, rename, and choose presets for your WLED devices.</p>
+    <button type="button" class="btn btn-primary btn-sm" onclick="toggleAddPanel(true)">Add device</button>
   </div>
 
-  <ul class="nav nav-tabs mb-3" id="mainTabs" role="tablist">
-    <li class="nav-item"><button id="devicesTabBtn" class="nav-link active" type="button" data-tab="devices" onclick="switchTab('devices', this)">Devices</button></li>
-    <li class="nav-item"><button id="settingsTabBtn" class="nav-link" type="button" data-tab="settings" onclick="switchTab('settings', this)">Settings</button></li>
-    <li class="nav-item"><button id="supportTabBtn" class="nav-link" type="button" data-tab="support" onclick="switchTab('support', this)">Support</button></li>
+  <div id="addPanel" class="add-panel d-none">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="fw-semibold">Add device</div>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAddPanel(false)">Close</button>
+    </div>
+    <ul class="nav nav-pills mb-3">
+      <li class="nav-item"><button class="nav-link active btn-sm" type="button" id="addModeScanBtn" onclick="setAddMode('scan')">Scan network</button></li>
+      <li class="nav-item"><button class="nav-link btn-sm" type="button" id="addModeIpBtn" onclick="setAddMode('ip')">Enter IP</button></li>
+    </ul>
+    <div id="addModeScan">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <button id="discoverBtn" class="btn btn-primary btn-sm" onclick="startDiscovery()">Start scan</button>
+        <button id="stopDiscoverBtn" class="btn btn-secondary btn-sm" style="display:none;" onclick="stopDiscovery()">Stop</button>
+        <span id="discoveringSpinner" class="spinner-border spinner-border-sm text-primary" style="display:none;" role="status"></span>
+      </div>
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="autoStopDiscovery" checked onchange="saveAutoStopDiscovery()">
+        <label class="form-check-label small" for="autoStopDiscovery">Stop early when all found devices are already configured</label>
+      </div>
+      <div id="discoveryProgress" class="discovery-progress d-none mb-2">
+        <div class="d-flex justify-content-between small text-muted mb-1">
+          <span id="discoveryStatusText">Scanning…</span>
+          <span id="discoveryCountText">0 found</span>
+        </div>
+        <div class="progress"><div id="discoveryProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div></div>
+      </div>
+      <div id="discoveredDeviceList"></div>
+    </div>
+    <div id="addModeIp" class="d-none">
+      <div class="row g-2 align-items-end">
+        <div class="col">
+          <label class="form-label small mb-1" for="manualHost">Host</label>
+          <input id="manualHost" class="form-control form-control-sm" type="text" placeholder="192.168.1.50 or wled-living.local">
+        </div>
+        <div class="col-3">
+          <label class="form-label small mb-1" for="manualPort">Port</label>
+          <input id="manualPort" class="form-control form-control-sm" type="number" min="1" max="65535" value="80">
+        </div>
+        <div class="col-auto"><button class="btn btn-success btn-sm" type="button" onclick="addDeviceByIp()">Add</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="configuredDeviceList"><div class="text-center text-muted py-5">Loading…</div></div>
+</div>
+
+<div id="pageSettings" class="mt-4 d-none">
+  <p class="grey-text small mb-3">Changes here are staged immediately. Press <strong>Save</strong> at the bottom of this window to write them to <code>config.json</code>.</p>
+  <div class="hb-settings-block settings-group">
+    <h5 class="primary-text hb-section-title">Logging</h5>
+    <ul class="list-group list-group-box mt-2 mx-0">
+      <li class="list-group-item">
+        <div class="d-flex justify-content-between align-items-center gap-3">
+          <span>Log level<br><small class="grey-text pe-2">Controls how much detail this plugin writes to the Homebridge log. Use Debug only while troubleshooting.</small></span>
+          <select id="logLevel" class="form-select form-select-sm hb-input-sm flex-shrink-0" style="max-width:11rem" onchange="saveLogLevel()">
+            <option value="error">Error</option>
+            <option value="warn">Warning</option>
+            <option value="info">Info (default)</option>
+            <option value="debug">Debug</option>
+          </select>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <div class="hb-settings-block settings-group">
+    <h5 class="primary-text hb-section-title">Naming</h5>
+    <ul class="list-group list-group-box mt-2 mx-0">
+      <li class="list-group-item">
+        <div class="d-flex justify-content-between align-items-center gap-3">
+          <span>TV name suffix<br><small class="grey-text pe-2">Appended when presets are exposed as a separate Television accessory (for example “Living Room Presets”).</small></span>
+          <input id="tvNameSuffix" class="form-control form-control-sm hb-input-sm flex-shrink-0" type="text" placeholder="Presets" onblur="savePresentationSettings()">
+        </div>
+      </li>
+      <li class="list-group-item">
+        <div class="d-flex justify-content-between align-items-center gap-3">
+          <span>Custom input label<br><small class="grey-text pe-2">Label shown for identifier 0 when using Television / input-style accessories.</small></span>
+          <input id="customInputLabel" class="form-control form-control-sm hb-input-sm flex-shrink-0" type="text" placeholder="Custom" onblur="savePresentationSettings()">
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <div class="hb-settings-block settings-group">
+    <h5 class="primary-text hb-section-title">Defaults for new devices</h5>
+    <ul class="list-group list-group-box mt-2 mx-0">
+      <li class="list-group-item">
+        <div class="d-flex justify-content-between align-items-center gap-3">
+          <span>Use WebSockets<br><small class="grey-text pe-2">Applied to newly added devices. Requires WLED v0.13+. You can override this per device.</small></span>
+          <div class="form-check form-switch m-0"><input class="form-check-input" role="switch" id="defaultUseWebSockets" type="checkbox" onchange="saveDefaultSettings()"></div>
+        </div>
+      </li>
+      <li class="list-group-item">
+        <div class="d-flex justify-content-between align-items-center gap-3">
+          <span>HTTP poll interval (sec)<br><small class="grey-text pe-2">Default poll rate when WebSockets are off. Values between 2 and 300 seconds.</small></span>
+          <input id="defaultPollInterval" class="form-control form-control-sm hb-input-sm flex-shrink-0" type="number" min="2" max="300" value="10" onblur="saveDefaultSettings()">
+        </div>
+      </li>
+      <li class="list-group-item">
+        <div class="d-flex justify-content-between align-items-center gap-3">
+          <span>Preset controls<br><small class="grey-text pe-2">When on, new devices expose presets in HomeKit by default.</small></span>
+          <div class="form-check form-switch m-0"><input class="form-check-input" role="switch" id="defaultUsePresetService" type="checkbox" onchange="saveDefaultSettings()"></div>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <div class="hb-settings-block settings-group mb-0">
+    <h5 class="primary-text hb-section-title">Nightlight defaults</h5>
+    <ul class="list-group list-group-box mt-2 mx-0">
+      <li class="list-group-item">
+        <div class="d-flex justify-content-between align-items-center gap-3">
+          <span>Enable by default<br><small class="grey-text pe-2">Devices set to “Use defaults” inherit this nightlight configuration.</small></span>
+          <div class="form-check form-switch m-0"><input class="form-check-input" role="switch" id="globalNightlightEnabled" type="checkbox" onchange="saveDefaultSettings()"></div>
+        </div>
+      </li>
+      <li class="list-group-item">
+        <small class="grey-text pe-2">Shared timers for devices that use nightlight defaults (max 8). Custom per-device timers override these.</small>
+        <div id="globalNightlightTimerAlert" class="timer-overlap-alert mt-2" hidden></div>
+        <div id="globalNightlightTimers" class="mt-2"></div>
+        <div id="globalNightlightTimerControls" class="mt-2"></div>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div id="pageSupport" class="mt-4 d-none support-content">
+  <p class="text-center lead mb-1">Thank you for using <strong>WLED Kit</strong></p>
+  <p class="text-center grey-text small mb-4">Control WLED-powered LED strips from the Home app via Homebridge.</p>
+
+  <h5 class="primary-text hb-section-title">What this plugin does</h5>
+  <ul class="grey-text small">
+    <li>Exposes each WLED strip as HomeKit Light accessories (on/off, brightness, color, color temperature).</li>
+    <li>Optional Television-style preset inputs, segment lights, effect switches, and nightlight timers.</li>
+    <li>Network discovery for WLED devices on your LAN (mDNS + manual IP).</li>
+    <li>Real-time state via WebSockets (WLED v0.13+) with HTTP polling fallback.</li>
+    <li>Optional HyperHDR sync for Ambilight setups.</li>
   </ul>
 
-  <div id="devicesTab" class="page-tab-content">
-    <div class="page-toolbar">
-      <p class="text-muted small mb-0">Enable, rename, and choose presets for your WLED devices.</p>
-      <button type="button" class="btn btn-primary btn-sm" onclick="toggleAddPanel(true)">Add device</button>
-    </div>
+  <h5 class="primary-text hb-section-title">Prerequisites</h5>
+  <ul class="grey-text small">
+    <li><a href="https://homebridge.io" target="_blank" rel="noopener">Homebridge</a> v1.8+ or 2.x</li>
+    <li>Node.js v20, v22, or v24 (LTS)</li>
+    <li><a href="https://kno.wled.ge/" target="_blank" rel="noopener">WLED</a> firmware v0.13+ recommended for WebSockets</li>
+    <li>Homebridge and your WLED devices on the same network (or routable)</li>
+  </ul>
 
-    <div id="addPanel" class="add-panel d-none">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="fw-semibold">Add device</div>
-        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAddPanel(false)">Close</button>
-      </div>
-      <ul class="nav nav-pills mb-3">
-        <li class="nav-item"><button class="nav-link active btn-sm" type="button" id="addModeScanBtn" onclick="setAddMode('scan')">Scan network</button></li>
-        <li class="nav-item"><button class="nav-link btn-sm" type="button" id="addModeIpBtn" onclick="setAddMode('ip')">Enter IP</button></li>
-      </ul>
-      <div id="addModeScan">
-        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-          <button id="discoverBtn" class="btn btn-primary btn-sm" onclick="startDiscovery()">Start scan</button>
-          <button id="stopDiscoverBtn" class="btn btn-secondary btn-sm" style="display:none;" onclick="stopDiscovery()">Stop</button>
-          <span id="discoveringSpinner" class="spinner-border spinner-border-sm text-primary" style="display:none;" role="status"></span>
-        </div>
-        <div class="form-check mb-2">
-          <input class="form-check-input" type="checkbox" id="autoStopDiscovery" checked onchange="saveAutoStopDiscovery()">
-          <label class="form-check-label small" for="autoStopDiscovery">Stop early when all found devices are already configured</label>
-        </div>
-        <div id="discoveryProgress" class="discovery-progress d-none mb-2">
-          <div class="d-flex justify-content-between small text-muted mb-1">
-            <span id="discoveryStatusText">Scanning…</span>
-            <span id="discoveryCountText">0 found</span>
-          </div>
-          <div class="progress"><div id="discoveryProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div></div>
-        </div>
-        <div id="discoveredDeviceList"></div>
-      </div>
-      <div id="addModeIp" class="d-none">
-        <div class="row g-2 align-items-end">
-          <div class="col">
-            <label class="form-label small mb-1" for="manualHost">Host</label>
-            <input id="manualHost" class="form-control form-control-sm" type="text" placeholder="192.168.1.50 or wled-living.local">
-          </div>
-          <div class="col-3">
-            <label class="form-label small mb-1" for="manualPort">Port</label>
-            <input id="manualPort" class="form-control form-control-sm" type="number" min="1" max="65535" value="80">
-          </div>
-          <div class="col-auto"><button class="btn btn-success btn-sm" type="button" onclick="addDeviceByIp()">Add</button></div>
-        </div>
-      </div>
-    </div>
+  <h5 class="primary-text hb-section-title">Quick start</h5>
+  <ol class="grey-text small">
+    <li>Open the <strong>Devices</strong> tab → <strong>Add device</strong> → scan or enter an IP.</li>
+    <li>Enable each strip and expand it to configure presets and advanced options.</li>
+    <li>Press <strong>Save</strong> at the bottom of this settings window.</li>
+    <li>Restart Homebridge when the restart banner appears.</li>
+  </ol>
 
-    <div id="configuredDeviceList"><div class="text-center text-muted py-5">Loading…</div></div>
-  </div>
+  <h5 class="primary-text hb-section-title">Troubleshooting</h5>
+  <ul class="grey-text small">
+    <li><strong>No devices found?</strong> Confirm WLED is online, mDNS works on your network, or add by IP.</li>
+    <li><strong>Offline status?</strong> Check host/port, firewall, and that Homebridge can reach the strip.</li>
+    <li><strong>Changes not applied?</strong> Press Save in this window, then restart Homebridge.</li>
+    <li><strong>Debug logs:</strong> Set log level to Debug under Settings, reproduce, then check Homebridge Logs.</li>
+  </ul>
 
-  <div id="settingsTab" class="page-tab-content d-none">
-    <p class="grey-text small mb-3">Changes here are staged immediately. Press <strong>Save</strong> at the bottom of this window to write them to <code>config.json</code>.</p>
-    <div class="hb-settings-block settings-group">
-      <h5 class="primary-text hb-section-title">Logging</h5>
-      <ul class="list-group list-group-box mt-2 mx-0">
-        <li class="list-group-item">
-          <div class="d-flex justify-content-between align-items-center gap-3">
-            <span>Log level<br><small class="grey-text pe-2">Controls how much detail this plugin writes to the Homebridge log. Use Debug only while troubleshooting.</small></span>
-            <select id="logLevel" class="form-select form-select-sm hb-input-sm flex-shrink-0" style="max-width:11rem" onchange="saveLogLevel()">
-              <option value="error">Error</option>
-              <option value="warn">Warning</option>
-              <option value="info">Info (default)</option>
-              <option value="debug">Debug</option>
-            </select>
-          </div>
-        </li>
-      </ul>
-    </div>
-
-    <div class="hb-settings-block settings-group">
-      <h5 class="primary-text hb-section-title">Naming</h5>
-      <ul class="list-group list-group-box mt-2 mx-0">
-        <li class="list-group-item">
-          <div class="d-flex justify-content-between align-items-center gap-3">
-            <span>TV name suffix<br><small class="grey-text pe-2">Appended when presets are exposed as a separate Television accessory (for example “Living Room Presets”).</small></span>
-            <input id="tvNameSuffix" class="form-control form-control-sm hb-input-sm flex-shrink-0" type="text" placeholder="Presets" onblur="savePresentationSettings()">
-          </div>
-        </li>
-        <li class="list-group-item">
-          <div class="d-flex justify-content-between align-items-center gap-3">
-            <span>Custom input label<br><small class="grey-text pe-2">Label shown for identifier 0 when using Television / input-style accessories.</small></span>
-            <input id="customInputLabel" class="form-control form-control-sm hb-input-sm flex-shrink-0" type="text" placeholder="Custom" onblur="savePresentationSettings()">
-          </div>
-        </li>
-      </ul>
-    </div>
-
-    <div class="hb-settings-block settings-group">
-      <h5 class="primary-text hb-section-title">Defaults for new devices</h5>
-      <ul class="list-group list-group-box mt-2 mx-0">
-        <li class="list-group-item">
-          <div class="d-flex justify-content-between align-items-center gap-3">
-            <span>Use WebSockets<br><small class="grey-text pe-2">Applied to newly added devices. Requires WLED v0.13+. You can override this per device.</small></span>
-            <div class="form-check form-switch m-0"><input class="form-check-input" role="switch" id="defaultUseWebSockets" type="checkbox" onchange="saveDefaultSettings()"></div>
-          </div>
-        </li>
-        <li class="list-group-item">
-          <div class="d-flex justify-content-between align-items-center gap-3">
-            <span>HTTP poll interval (sec)<br><small class="grey-text pe-2">Default poll rate when WebSockets are off. Values between 2 and 300 seconds.</small></span>
-            <input id="defaultPollInterval" class="form-control form-control-sm hb-input-sm flex-shrink-0" type="number" min="2" max="300" value="10" onblur="saveDefaultSettings()">
-          </div>
-        </li>
-        <li class="list-group-item">
-          <div class="d-flex justify-content-between align-items-center gap-3">
-            <span>Preset controls<br><small class="grey-text pe-2">When on, new devices expose presets in HomeKit by default.</small></span>
-            <div class="form-check form-switch m-0"><input class="form-check-input" role="switch" id="defaultUsePresetService" type="checkbox" onchange="saveDefaultSettings()"></div>
-          </div>
-        </li>
-      </ul>
-    </div>
-
-    <div class="hb-settings-block settings-group mb-0">
-      <h5 class="primary-text hb-section-title">Nightlight defaults</h5>
-      <ul class="list-group list-group-box mt-2 mx-0">
-        <li class="list-group-item">
-          <div class="d-flex justify-content-between align-items-center gap-3">
-            <span>Enable by default<br><small class="grey-text pe-2">Devices set to “Use defaults” inherit this nightlight configuration.</small></span>
-            <div class="form-check form-switch m-0"><input class="form-check-input" role="switch" id="globalNightlightEnabled" type="checkbox" onchange="saveDefaultSettings()"></div>
-          </div>
-        </li>
-        <li class="list-group-item">
-          <small class="grey-text pe-2">Shared timers for devices that use nightlight defaults (max 8). Custom per-device timers override these.</small>
-          <div id="globalNightlightTimers" class="mt-2"></div>
-          <div id="globalNightlightTimerControls" class="mt-2"></div>
-        </li>
-      </ul>
-    </div>
-  </div>
-
-  <div id="supportTab" class="page-tab-content d-none support-content">
-    <p class="text-center lead mb-1">Thank you for using <strong>WLED Kit</strong></p>
-    <p class="text-center grey-text small mb-4">Control WLED-powered LED strips from the Home app via Homebridge.</p>
-
-    <h5 class="primary-text hb-section-title">What this plugin does</h5>
-    <ul class="grey-text small">
-      <li>Exposes each WLED strip as HomeKit Light accessories (on/off, brightness, color, color temperature).</li>
-      <li>Optional Television-style preset inputs, segment lights, effect switches, and nightlight timers.</li>
-      <li>Network discovery for WLED devices on your LAN (mDNS + manual IP).</li>
-      <li>Real-time state via WebSockets (WLED v0.13+) with HTTP polling fallback.</li>
-      <li>Optional HyperHDR sync for Ambilight setups.</li>
-    </ul>
-
-    <h5 class="primary-text hb-section-title">Prerequisites</h5>
-    <ul class="grey-text small">
-      <li><a href="https://homebridge.io" target="_blank" rel="noopener">Homebridge</a> v1.8+ or 2.x</li>
-      <li>Node.js v20, v22, or v24 (LTS)</li>
-      <li><a href="https://kno.wled.ge/" target="_blank" rel="noopener">WLED</a> firmware v0.13+ recommended for WebSockets</li>
-      <li>Homebridge and your WLED devices on the same network (or routable)</li>
-    </ul>
-
-    <h5 class="primary-text hb-section-title">Quick start</h5>
-    <ol class="grey-text small">
-      <li>Open the <strong>Devices</strong> tab → <strong>Add device</strong> → scan or enter an IP.</li>
-      <li>Enable each strip and expand it to configure presets and advanced options.</li>
-      <li>Press <strong>Save</strong> at the bottom of this settings window.</li>
-      <li>Restart Homebridge when the restart banner appears.</li>
-    </ol>
-
-    <h5 class="primary-text hb-section-title">Troubleshooting</h5>
-    <ul class="grey-text small">
-      <li><strong>No devices found?</strong> Confirm WLED is online, mDNS works on your network, or add by IP.</li>
-      <li><strong>Offline status?</strong> Check host/port, firewall, and that Homebridge can reach the strip.</li>
-      <li><strong>Changes not applied?</strong> Press Save in this window, then restart Homebridge.</li>
-      <li><strong>Debug logs:</strong> Set log level to Debug under Settings, reproduce, then check Homebridge Logs.</li>
-    </ul>
-
-    <h5 class="primary-text hb-section-title">Links</h5>
-    <ul class="grey-text small mb-0">
-      <li><a href="https://github.com/esadrian/homebridge-wled-kit" target="_blank" rel="noopener">GitHub repository</a></li>
-      <li><a href="https://kno.wled.ge/" target="_blank" rel="noopener">WLED documentation</a></li>
-      <li><a href="https://github.com/homebridge/homebridge-config-ui-x" target="_blank" rel="noopener">Homebridge Config UI X</a></li>
-    </ul>
-  </div>
+  <h5 class="primary-text hb-section-title">Links</h5>
+  <ul class="grey-text small mb-0">
+    <li><a href="https://github.com/esadrian/homebridge-wled-kit" target="_blank" rel="noopener">GitHub repository</a></li>
+    <li><a href="https://kno.wled.ge/" target="_blank" rel="noopener">WLED documentation</a></li>
+    <li><a href="https://github.com/homebridge/homebridge-config-ui-x" target="_blank" rel="noopener">Homebridge Config UI X</a></li>
+  </ul>
 </div>
 
 <script src="app.js"></script>

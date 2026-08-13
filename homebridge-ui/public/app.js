@@ -18,8 +18,10 @@ function escapeHtml(str) {
     function hbDisableSave(){ window.homebridge?.disableSaveButton?.(); }
     function hbHideSchemaForm(){ window.homebridge?.hideSchemaForm?.(); }
 
-    function markRestartNeeded(){ const b=document.getElementById('restartBanner'); if(b) b.style.display='flex'; }
-    function dismissRestartBanner(){ const b=document.getElementById('restartBanner'); if(b) b.style.display='none'; }
+    const MENU_BUTTON_IDS={settings:'menuSettings',devices:'menuDevices',support:'menuSupport'};
+    const PAGE_IDS={settings:'pageSettings',devices:'pageDevices',support:'pageSupport'};
+    function markRestartNeeded(){ const b=document.getElementById('restartBanner'); if(b){ b.classList.remove('d-none'); b.style.display='flex'; } }
+    function dismissRestartBanner(){ const b=document.getElementById('restartBanner'); if(b){ b.classList.add('d-none'); b.style.display='none'; } }
     async function notifySaved(){
       markRestartNeeded();
       await window.homebridge.toast.info(withSaveHint('Changes staged'), 'Updated');
@@ -34,24 +36,32 @@ function escapeHtml(str) {
     function showIntro(){
       document.getElementById('pageIntro')?.classList.remove('d-none');
       document.getElementById('menuWrapper')?.classList.add('d-none');
+      Object.values(PAGE_IDS).forEach(id=>document.getElementById(id)?.classList.add('d-none'));
       hbHideSchemaForm();
       hbDisableSave();
+    }
+    function setMenuActive(tabName){
+      Object.entries(MENU_BUTTON_IDS).forEach(([name,id])=>{
+        const btn=document.getElementById(id);
+        if(!btn) return;
+        const active=name===tabName;
+        btn.classList.toggle('btn-elegant', active);
+        btn.classList.toggle('btn-primary', !active);
+      });
     }
     function showMainUI(defaultTab='devices'){
       document.getElementById('pageIntro')?.classList.add('d-none');
       document.getElementById('menuWrapper')?.classList.remove('d-none');
-      const btn=document.querySelector(`#mainTabs [data-tab="${defaultTab}"]`);
-      switchTab(defaultTab, btn);
+      switchTab(defaultTab);
     }
     function continueFromIntro(){ showMainUI('devices'); }
 
-    function switchTab(tabName, btn){
+    function switchTab(tabName){
       hbShowSpinner();
       try{
-        document.querySelectorAll('.page-tab-content').forEach(t=>t.classList.add('d-none'));
-        document.querySelectorAll('#mainTabs .nav-link').forEach(t=>t.classList.remove('active'));
-        document.getElementById(`${tabName}Tab`)?.classList.remove('d-none');
-        btn?.classList.add('active');
+        Object.values(PAGE_IDS).forEach(id=>document.getElementById(id)?.classList.add('d-none'));
+        document.getElementById(PAGE_IDS[tabName])?.classList.remove('d-none');
+        setMenuActive(tabName);
         hbHideSchemaForm();
         if(tabName==='settings'){
           hbEnableSave();
@@ -164,17 +174,62 @@ function escapeHtml(str) {
       });
       return { nameMatches, secMatches };
     }
-    function notifyTimerOverlaps(timers, candidate, excludeIndex=-1){
+    const timerOverlapAlerts={};
+    function timerOverlapAlertId(context){
+      return context==='global'?'globalNightlightTimerAlert':`nightlight-timer-alert-${context}`;
+    }
+    function dismissTimerOverlapAlert(context){
+      delete timerOverlapAlerts[context];
+      applyTimerOverlapAlert(context);
+    }
+    function buildTimerOverlapMessage(timers, candidate, excludeIndex=-1){
       const { nameMatches, secMatches }=getTimerOverlapInfo(timers, candidate, excludeIndex);
-      if(!nameMatches.length&&!secMatches.length) return;
+      if(!nameMatches.length&&!secMatches.length) return null;
       const parts=[];
       if(nameMatches.length){
         const label=(candidate.name||'').trim()||'(empty name)';
         parts.push(`Same name (“${label}”) as timer #${nameMatches.join(', #')}`);
       }
       if(secMatches.length) parts.push(`Same duration (${candidate.seconds} sec) as timer #${secMatches.join(', #')}`);
-      const body=`${parts.join('. ')}. Duplicates are allowed, but HomeKit may show identical switches.`;
-      window.alert(`Timer overlap\n\n${body}`);
+      return `${parts.join('. ')}. Duplicates are allowed, but HomeKit may show identical switches.`;
+    }
+    function applyTimerOverlapAlert(context){
+      const el=document.getElementById(timerOverlapAlertId(context));
+      if(!el) return;
+      const text=timerOverlapAlerts[context];
+      if(!text){
+        el.innerHTML='';
+        el.hidden=true;
+        return;
+      }
+      const dismissArg=context==='global'?'\'global\'':String(context);
+      el.hidden=false;
+      el.innerHTML=`<div class="alert alert-warning alert-dismissible fade show timer-overlap-alert-inner py-2 mb-2" role="alert">
+        <strong>Timer overlap.</strong> ${escapeHtml(text)}
+        <button type="button" class="btn-close btn-close-sm" aria-label="Close" onclick="dismissTimerOverlapAlert(${dismissArg})"></button>
+      </div>`;
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+    function showTimerOverlapAlert(context, message){
+      if(message) timerOverlapAlerts[context]=message;
+      else delete timerOverlapAlerts[context];
+      applyTimerOverlapAlert(context);
+    }
+    function notifyTimerOverlaps(timers, candidate, excludeIndex=-1, context){
+      const body=buildTimerOverlapMessage(timers, candidate, excludeIndex);
+      if(context!=null) showTimerOverlapAlert(context, body);
+      return body;
+    }
+    function refreshTimerOverlapAlert(timers, context){
+      const list=timers||[];
+      for(let i=0;i<list.length;i++){
+        const body=buildTimerOverlapMessage(list, list[i], i);
+        if(body){
+          showTimerOverlapAlert(context, body);
+          return;
+        }
+      }
+      showTimerOverlapAlert(context, null);
     }
     async function checkTimerLimit(timers){
       if((timers?.length||0)>=NIGHTLIGHT_TIMER_MAX){
@@ -224,7 +279,7 @@ function escapeHtml(str) {
         onRemove:i=>`removeNightlightTimer(${idx},${i})`});
     }
     function setDevicesTabCount(count){
-      const tabBtn=document.getElementById('devicesTabBtn');
+      const tabBtn=document.getElementById('menuDevices');
       if(tabBtn) tabBtn.textContent=count>0?`Devices (${count})`:'Devices';
     }
     function nightlightModeOf(device){
@@ -279,6 +334,7 @@ function escapeHtml(str) {
         <li class="list-group-item ${showTimers?'':'d-none'}" id="nightlight-details-${index}">
           <small class="grey-text pe-2">Timers turn the nightlight on/off at set times for this device (max ${NIGHTLIGHT_TIMER_MAX}).</small>
           <div class="hb-nested-fields mt-2">
+            <div id="nightlight-timer-alert-${index}" class="timer-overlap-alert" hidden></div>
             <div id="nightlight-timers-${index}">${deviceTimersHtml(timers, false, index)}</div>
             <div id="nightlight-timer-controls-${index}">${renderTimerPresetBar(index, (timers||[]).length)}</div>
           </div>
@@ -652,6 +708,7 @@ function escapeHtml(str) {
       const t=timers||[];
       if(list) list.innerHTML=deviceTimersHtml(t,false,index);
       if(controls) controls.innerHTML=renderTimerPresetBar(index, t.length);
+      refreshTimerOverlapAlert(t, index);
     }
     async function addNightlightTimerPreset(index, seconds, name){
       try{
@@ -661,7 +718,7 @@ function escapeHtml(str) {
           const timers=d.deviceSettings.nightlight.timers||(d.deviceSettings.nightlight.timers=[]);
           if(!(await checkTimerLimit(timers))) throw new Error('__limit');
           const newTimer={ name, seconds };
-          await notifyTimerOverlaps(timers, newTimer);
+          await notifyTimerOverlaps(timers, newTimer, -1, index);
           timers.push(newTimer);
         });
         if(device) renderNightlightTimers(index, device.deviceSettings.nightlight.timers);
@@ -675,7 +732,7 @@ function escapeHtml(str) {
           const timers=d.deviceSettings.nightlight.timers||(d.deviceSettings.nightlight.timers=[]);
           if(!(await checkTimerLimit(timers))) throw new Error('__limit');
           const newTimer={ name:'', seconds:null };
-          await notifyTimerOverlaps(timers, newTimer);
+          await notifyTimerOverlaps(timers, newTimer, -1, index);
           timers.push(newTimer);
         });
         if(device) renderNightlightTimers(index, device.deviceSettings.nightlight.timers);
@@ -698,18 +755,19 @@ function escapeHtml(str) {
           nl.timers[timerIndex].name=(name||'').trim();
         });
         const timers=device?.deviceSettings?.nightlight?.timers||[];
-        if(timers[timerIndex]) await notifyTimerOverlaps(timers, timers[timerIndex], timerIndex);
+        refreshTimerOverlapAlert(timers, index);
       }catch(_){}
     }
     async function updateNightlightTimerSeconds(index, timerIndex, seconds){
       try{
         const raw=(seconds??'').toString().trim();
         if(!raw){
-          await mutateDevice(index,d=>{
+          const {device}=await mutateDevice(index,d=>{
             const nl=d.deviceSettings?.nightlight;
             if(!nl?.timers?.[timerIndex]) return;
             nl.timers[timerIndex].seconds=null;
           });
+          refreshTimerOverlapAlert(device?.deviceSettings?.nightlight?.timers||[], index);
           return;
         }
         const value=parseInt(raw,10);
@@ -726,7 +784,7 @@ function escapeHtml(str) {
           nl.timers[timerIndex].seconds=value;
         });
         const timers=device?.deviceSettings?.nightlight?.timers||[];
-        if(timers[timerIndex]) await notifyTimerOverlaps(timers, timers[timerIndex], timerIndex);
+        refreshTimerOverlapAlert(timers, index);
       }catch(_){}
     }
     async function renameDevice(index, currentName){
@@ -824,6 +882,7 @@ function escapeHtml(str) {
         onRemove:i=>`removeGlobalNightlightTimer(${i})`,
       });
       if(controls) controls.innerHTML=renderTimerPresetBar('global', t.length);
+      refreshTimerOverlapAlert(t, 'global');
     }
     async function addGlobalNightlightTimerPreset(seconds, name){
       try{
@@ -833,7 +892,7 @@ function escapeHtml(str) {
         const timers=config[0].manualDevicesSection.nightlight.timers||[];
         if(!(await checkTimerLimit(timers))) return;
         const newTimer={ name, seconds };
-        await notifyTimerOverlaps(timers, newTimer);
+        notifyTimerOverlaps(timers, newTimer, -1, 'global');
         timers.push(newTimer);
         config[0].manualDevicesSection.nightlight.timers=timers;
         await window.homebridge.updatePluginConfig(config);
@@ -849,7 +908,7 @@ function escapeHtml(str) {
         const timers=config[0].manualDevicesSection.nightlight.timers||[];
         if(!(await checkTimerLimit(timers))) return;
         const newTimer={ name:'', seconds:null };
-        await notifyTimerOverlaps(timers, newTimer);
+        notifyTimerOverlaps(timers, newTimer, -1, 'global');
         timers.push(newTimer);
         config[0].manualDevicesSection.nightlight.timers=timers;
         await window.homebridge.updatePluginConfig(config);
@@ -890,9 +949,7 @@ function escapeHtml(str) {
         }
         await window.homebridge.updatePluginConfig(config);
         markRestartNeeded();
-        if(field==='name'||(field==='seconds'&&timers[i].seconds!=null)){
-          await notifyTimerOverlaps(timers, timers[i], i);
-        }
+        refreshTimerOverlapAlert(timers, 'global');
         renderGlobalNightlightTimers(timers);
       }catch(_){}
     }
@@ -1205,6 +1262,9 @@ function escapeHtml(str) {
         });
       }catch(e){ console.error('[UI] Event listener error:', e); }
       document.getElementById('introContinueBtn')?.addEventListener('click', continueFromIntro);
+      document.getElementById('menuSettings')?.addEventListener('click', ()=>switchTab('settings'));
+      document.getElementById('menuDevices')?.addEventListener('click', ()=>switchTab('devices'));
+      document.getElementById('menuSupport')?.addEventListener('click', ()=>switchTab('support'));
       bootstrapUI();
     }
     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', initializeUI);
