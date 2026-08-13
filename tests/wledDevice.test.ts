@@ -1,4 +1,4 @@
-import { WLEDDevice, WLEDState } from '../src/wledDevice';
+import { WLEDDevice, WLEDState } from '../src/device/wledDevice';
 import { MockLogger } from './mocks/homebridge';
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
@@ -216,8 +216,7 @@ describe('WLEDDevice', () => {
     });
 
     it('should convert RGB to HSV correctly', () => {
-      // Test RGB to HSV conversion
-      const rgbToHsv = (device as any).rgbToHsv.bind(device);
+      const { rgbToHsv } = require('../src/shared/wledUtils');
 
       // Red
       let hsv = rgbToHsv(255, 0, 0);
@@ -240,8 +239,7 @@ describe('WLEDDevice', () => {
     });
 
     it('should convert HSV to RGB correctly', () => {
-      // Test HSV to RGB conversion
-      const hsvToRgb = (device as any).hsvToRgb.bind(device);
+      const { hsvToRgb } = require('../src/shared/wledUtils');
 
       // Red
       let rgb = hsvToRgb(0, 100, 100);

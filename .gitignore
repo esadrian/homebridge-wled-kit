@@ -4,6 +4,12 @@ node_modules/
 # TypeScript build output
 dist/
 
+# Accidental tsc emit next to sources (official build uses dist/)
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map
+
 # Debug files
 npm-debug.log*
 yarn-debug.log*
@@ -30,6 +36,9 @@ coverage/
 
 # Claude Code
 .claude/
+
+# Local-only dev scripts (Pi sync, personal env)
+.local/
 
 # Builds
 *.tgz

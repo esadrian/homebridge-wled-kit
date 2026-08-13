@@ -92,6 +92,10 @@ export class MockCharacteristic {
     this.value = value;
     return this;
   }
+
+  setProps(_props: any): this {
+    return this;
+  }
 }
 
 /**
@@ -116,7 +120,16 @@ export class MockPlatformAccessory {
 
   getService(service: any): MockService | undefined {
     const uuid = typeof service === 'string' ? service : service.UUID;
-    return this.serviceMap.get(uuid);
+    // Prefer primary (no subtype) service for getService
+    if (this.serviceMap.has(uuid)) {
+      return this.serviceMap.get(uuid);
+    }
+    for (const [key, svc] of this.serviceMap.entries()) {
+      if (key.startsWith(`${uuid}:`)) {
+        return svc;
+      }
+    }
+    return undefined;
   }
 
   addService(service: any, ...args: any[]): MockService {
@@ -125,21 +138,19 @@ export class MockPlatformAccessory {
     const subtype = args[1];
 
     const mockService = new MockService(displayName, uuid, subtype);
-    this.serviceMap.set(uuid, mockService);
+    const key = subtype ? `${uuid}:${subtype}` : uuid;
+    this.serviceMap.set(key, mockService);
     return mockService;
   }
 
   removeService(service: MockService): void {
-    this.serviceMap.delete(service.UUID);
+    const key = service.subtype ? `${service.UUID}:${service.subtype}` : service.UUID;
+    this.serviceMap.delete(key);
   }
 
-  getServiceById(uuid: string, subtype: string): MockService | undefined {
-    for (const service of this.serviceMap.values()) {
-      if (service.UUID === uuid && service.subtype === subtype) {
-        return service;
-      }
-    }
-    return undefined;
+  getServiceById(serviceOrUuid: any, subtype: string): MockService | undefined {
+    const uuid = typeof serviceOrUuid === 'string' ? serviceOrUuid : serviceOrUuid.UUID;
+    return this.serviceMap.get(`${uuid}:${subtype}`);
   }
 }
 
@@ -152,28 +163,48 @@ export class MockHAP {
     Lightbulb: { UUID: 'Lightbulb' },
     Television: { UUID: 'Television' },
     InputSource: { UUID: 'InputSource' },
+    Switch: { UUID: 'Switch' },
+    Outlet: { UUID: 'Outlet' },
   };
 
   Characteristic = {
     Manufacturer: { UUID: 'Manufacturer' },
     Model: { UUID: 'Model' },
     SerialNumber: { UUID: 'SerialNumber' },
+    FirmwareRevision: { UUID: 'FirmwareRevision' },
+    Name: { UUID: 'Name' },
+    ConfiguredName: { UUID: 'ConfiguredName' },
     On: { UUID: 'On' },
     Brightness: { UUID: 'Brightness' },
     Hue: { UUID: 'Hue' },
     Saturation: { UUID: 'Saturation' },
+    ColorTemperature: { UUID: 'ColorTemperature' },
     Active: {
       UUID: 'Active',
       ACTIVE: 1,
       INACTIVE: 0,
     },
     ActiveIdentifier: { UUID: 'ActiveIdentifier' },
-    ConfiguredName: { UUID: 'ConfiguredName' },
+    RemoteKey: {
+      UUID: 'RemoteKey',
+      REWIND: 0,
+      FAST_FORWARD: 1,
+      NEXT_TRACK: 2,
+      PREVIOUS_TRACK: 3,
+      ARROW_UP: 4,
+      ARROW_DOWN: 5,
+      ARROW_LEFT: 6,
+      ARROW_RIGHT: 7,
+      SELECT: 8,
+      BACK: 9,
+      EXIT: 10,
+      PLAY_PAUSE: 11,
+      INFORMATION: 15,
+    },
     SleepDiscoveryMode: {
       UUID: 'SleepDiscoveryMode',
       ALWAYS_DISCOVERABLE: 1,
     },
-    RemoteKey: { UUID: 'RemoteKey' },
     Identifier: { UUID: 'Identifier' },
     IsConfigured: {
       UUID: 'IsConfigured',

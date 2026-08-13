@@ -1,12 +1,26 @@
 import { WLEDPlatform } from '../src/platform';
-import { WLEDDiscoveryService } from '../src/discoveryService';
+import { WLEDDiscoveryService } from '../src/discovery/discoveryService';
 import { MockLogger, MockAPI, createMockPlatformConfig, createMockDeviceConfig } from './mocks/homebridge';
 
 // Mock dependencies
-jest.mock('../src/wledDevice');
-jest.mock('../src/discoveryService');
-jest.mock('../src/platformAccessory');
-jest.mock('../src/presetsAccessory');
+jest.mock('../src/device/wledDevice');
+jest.mock('../src/discovery/discoveryService');
+jest.mock('../src/accessories/platformAccessory');
+jest.mock('../src/accessories/presetsAccessory');
+jest.mock('../src/device/hyperHDRClient', () => {
+  const stopPolling = jest.fn();
+  const HyperHDRClient = jest.fn().mockImplementation(() => ({
+    stopPolling,
+    startPolling: jest.fn(),
+    setPower: jest.fn(),
+    setBrightness: jest.fn(),
+    getState: jest.fn(),
+    ping: jest.fn(),
+  }));
+  return { HyperHDRClient };
+});
+
+import { HyperHDRClient } from '../src/device/hyperHDRClient';
 
 describe('WLEDPlatform', () => {
   let mockLogger: MockLogger;
@@ -31,7 +45,7 @@ describe('WLEDPlatform', () => {
       const config = createMockPlatformConfig();
       platform = new WLEDPlatform(mockLogger, config, mockApi as any);
 
-      expect(WLEDDiscoveryService).toHaveBeenCalledWith(mockLogger);
+      expect(WLEDDiscoveryService).toHaveBeenCalledWith(expect.anything());
     });
 
     it('should register didFinishLaunching callback', () => {
@@ -96,6 +110,49 @@ describe('WLEDPlatform', () => {
       expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining('Skipping disabled device'));
     });
 
+    it('creates HyperHDR client only for devices with HyperHDR enabled', () => {
+      (HyperHDRClient as unknown as jest.Mock).mockClear();
+
+      const withHyper = createMockDeviceConfig({
+        name: 'With HyperHDR',
+        host: '192.168.1.100',
+        deviceSettings: {
+          pollInterval: 10,
+          useWebSockets: true,
+          enabledPresets: [],
+          hyperHDR: { enabled: true, host: '192.168.1.50', port: 8090, component: 'LEDDEVICE' },
+        },
+      });
+      const withoutHyper = createMockDeviceConfig({
+        name: 'Plain WLED',
+        host: '192.168.1.101',
+        deviceSettings: {
+          pollInterval: 10,
+          useWebSockets: true,
+          enabledPresets: [],
+        },
+      });
+
+      const config = createMockPlatformConfig({
+        devices: [withHyper, withoutHyper],
+      });
+
+      platform = new WLEDPlatform(mockLogger, config, mockApi as any);
+      mockApi.emit('didFinishLaunching');
+
+      expect(HyperHDRClient).toHaveBeenCalledTimes(1);
+      expect(HyperHDRClient).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          enabled: true,
+          host: '192.168.1.50',
+          port: 8090,
+          component: 'LEDDEVICE',
+        }),
+      );
+      expect(platform.wledDevices.size).toBe(2);
+    });
+
     it('should skip devices with missing required fields', () => {
       const invalidDevice = { name: 'Invalid' }; // Missing host
 
@@ -114,36 +171,23 @@ describe('WLEDPlatform', () => {
   });
 
   describe('Display Name Formatting', () => {
-    it('should format hostname to title case', () => {
-      const config = createMockPlatformConfig();
-      platform = new WLEDPlatform(mockLogger, config, mockApi as any);
+    // Naming helpers live in wledUtils; kept here for platform regression coverage.
+    const { getDisplayNameFromHost } = require('../src/shared/wledUtils');
 
-      const displayName = (platform as any).getDisplayNameFromHost('holiday-lights.local', 'Fallback');
-      expect(displayName).toBe('Holiday Lights');
+    it('should format hostname to title case', () => {
+      expect(getDisplayNameFromHost('holiday-lights.local', 'Fallback')).toBe('Holiday Lights');
     });
 
     it('should use fallback for IP addresses', () => {
-      const config = createMockPlatformConfig();
-      platform = new WLEDPlatform(mockLogger, config, mockApi as any);
-
-      const displayName = (platform as any).getDisplayNameFromHost('192.168.1.100', 'My WLED');
-      expect(displayName).toBe('My WLED');
+      expect(getDisplayNameFromHost('192.168.1.100', 'My WLED')).toBe('My WLED');
     });
 
     it('should remove .local suffix', () => {
-      const config = createMockPlatformConfig();
-      platform = new WLEDPlatform(mockLogger, config, mockApi as any);
-
-      const displayName = (platform as any).getDisplayNameFromHost('bedroom-lights.local', 'Fallback');
-      expect(displayName).toBe('Bedroom Lights');
+      expect(getDisplayNameFromHost('bedroom-lights.local', 'Fallback')).toBe('Bedroom Lights');
     });
 
     it('should handle single word hostnames', () => {
-      const config = createMockPlatformConfig();
-      platform = new WLEDPlatform(mockLogger, config, mockApi as any);
-
-      const displayName = (platform as any).getDisplayNameFromHost('wled.local', 'Fallback');
-      expect(displayName).toBe('Wled');
+      expect(getDisplayNameFromHost('wled.local', 'Fallback')).toBe('Wled');
     });
   });
 

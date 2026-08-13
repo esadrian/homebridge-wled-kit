@@ -1,0 +1,419 @@
+/* Design system — WLED Kit (Bootstrap host + local tokens)
+       Accent: amber LED (single). Cool neutrals. No purple/AI gradients. */
+    :root {
+      --wled-accent: #c2410c;
+      --wled-accent-soft: color-mix(in srgb, var(--wled-accent) 14%, transparent);
+      --wled-radius: 0.625rem;
+      --wled-radius-sm: 0.4rem;
+      --wled-ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --wled-shadow: 0 1px 2px color-mix(in srgb, var(--bs-body-color, #212529) 6%, transparent),
+                     0 8px 24px color-mix(in srgb, var(--bs-body-color, #212529) 4%, transparent);
+    }
+
+    body {
+      font-family: "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      font-feature-settings: "ss01" 1, "kern" 1;
+      letter-spacing: -0.011em;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Interactive feedback */
+    .btn, .nav-link, .form-check-input, .form-select, .form-control, .dropdown-item {
+      transition: background-color 180ms var(--wled-ease), border-color 180ms var(--wled-ease),
+                  color 180ms var(--wled-ease), box-shadow 180ms var(--wled-ease),
+                  transform 140ms var(--wled-ease), opacity 180ms var(--wled-ease);
+    }
+    .btn:active:not(:disabled) { transform: translateY(1px) scale(0.98); }
+    .btn-primary {
+      --bs-btn-bg: var(--wled-accent);
+      --bs-btn-border-color: var(--wled-accent);
+      --bs-btn-hover-bg: color-mix(in srgb, var(--wled-accent) 88%, #000);
+      --bs-btn-hover-border-color: color-mix(in srgb, var(--wled-accent) 88%, #000);
+      --bs-btn-active-bg: color-mix(in srgb, var(--wled-accent) 80%, #000);
+      --bs-btn-active-border-color: color-mix(in srgb, var(--wled-accent) 80%, #000);
+      --bs-btn-focus-shadow-rgb: 194, 65, 12;
+    }
+    .btn:focus-visible, .nav-link:focus-visible, .form-control:focus, .form-select:focus, .form-check-input:focus {
+      box-shadow: 0 0 0 0.2rem var(--wled-accent-soft) !important;
+      border-color: color-mix(in srgb, var(--wled-accent) 55%, var(--bs-border-color)) !important;
+    }
+    .form-check-input:checked {
+      background-color: var(--wled-accent);
+      border-color: var(--wled-accent);
+    }
+
+    /* Plugin header (Govee / Camera FFmpeg pattern) */
+    .plugin-header {
+      margin: 0 0 0.35rem;
+    }
+    .plugin-header-logo {
+      width: 60%;
+      max-width: 28rem;
+      height: auto;
+    }
+
+    /* Full-width tab bar — active tab uses host btn-elegant */
+    #menuWrapper .btn {
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+
+    .page-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.1rem;
+      flex-wrap: wrap;
+    }
+    .page-toolbar p {
+      max-width: 42ch;
+      line-height: 1.45;
+      text-wrap: pretty;
+    }
+
+    /* Add panel */
+    .add-panel {
+      border: 1px solid var(--bs-border-color);
+      border-radius: var(--wled-radius);
+      padding: 1rem 1.1rem;
+      margin-bottom: 1.15rem;
+      background: color-mix(in srgb, var(--bs-body-bg) 92%, var(--bs-secondary-bg, #f8f9fa));
+      box-shadow: var(--wled-shadow);
+      animation: wled-in 220ms var(--wled-ease);
+    }
+    .add-panel .nav-pills .nav-link {
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 0.35rem 0.85rem;
+      color: var(--bs-secondary-color);
+    }
+    .add-panel .nav-pills .nav-link.active {
+      background: var(--wled-accent);
+      color: #fff;
+    }
+
+    .discovery-progress .progress {
+      height: 0.3rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--wled-accent) 12%, var(--bs-secondary-bg, #e9ecef));
+    }
+    .discovery-progress .progress-bar {
+      background: var(--wled-accent);
+      border-radius: 999px;
+    }
+
+    /* Device cards */
+    .device-card {
+      border: 1px solid var(--bs-border-color) !important;
+      border-radius: var(--wled-radius) !important;
+      background: var(--bs-body-bg);
+      box-shadow: none;
+      transition: border-color 180ms var(--wled-ease), box-shadow 180ms var(--wled-ease),
+                  opacity 180ms var(--wled-ease);
+      margin-bottom: 0.75rem !important;
+      overflow: clip;
+    }
+    .device-card:hover {
+      box-shadow: var(--wled-shadow);
+    }
+    .device-card .card-body { padding: 0.95rem 1rem; }
+    .device-card .device-enable-switch:checked {
+      background-color: var(--bs-success, #198754) !important;
+      border-color: var(--bs-success, #198754) !important;
+    }
+    .device-card .device-enable-switch:focus {
+      box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--bs-success, #198754) 25%, transparent) !important;
+      border-color: color-mix(in srgb, var(--bs-success, #198754) 55%, var(--bs-border-color)) !important;
+    }
+    .device-card.is-off .device-dim {
+      opacity: 0.42;
+      transition: opacity 180ms var(--wled-ease);
+    }
+    .device-card.is-off .device-expand-btn {
+      opacity: 0.35;
+      pointer-events: none;
+    }
+    .device-card .btn-tool {
+      --bs-btn-color: var(--bs-secondary-color);
+      --bs-btn-hover-color: var(--bs-body-color);
+      --bs-btn-focus-shadow-rgb: 0, 0, 0;
+      text-decoration: none !important;
+      line-height: 1;
+      padding: 0.3rem 0.45rem;
+      border-radius: var(--wled-radius-sm);
+    }
+    .device-card .btn-tool:hover,
+    .device-card .btn-tool:focus-visible {
+      background: color-mix(in srgb, var(--bs-body-color) 6%, transparent);
+    }
+    .device-card .btn-tool:focus-visible {
+      box-shadow: 0 0 0 0.15rem var(--wled-accent-soft) !important;
+      border-color: transparent !important;
+    }
+    .device-expand-btn .fa-chevron-down {
+      display: inline-block;
+      transition: transform 180ms var(--wled-ease);
+      font-size: 0.78rem;
+    }
+    .device-expand-btn[aria-expanded="true"] .fa-chevron-down {
+      transform: rotate(180deg);
+    }
+    .device-name {
+      font-weight: 600;
+      font-size: 0.98rem;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+    }
+    .device-host {
+      font-size: 0.78rem;
+      color: var(--bs-secondary-color);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0;
+    }
+    .device-meta {
+      font-size: 0.72rem;
+      color: var(--bs-secondary-color);
+      opacity: 0.9;
+      margin-top: 0.1rem;
+    }
+    .device-status {
+      display: inline-flex;
+      align-items: center;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .device-status i {
+      line-height: 1;
+    }
+    .green-text { color: #4caf50 !important; }
+    .red-text { color: #f44336 !important; }
+    .orange-text { color: #ff9800 !important; }
+
+    .preset-swatch {
+      width: 0.625rem; height: 0.625rem; border-radius: 50%;
+      display: inline-block; vertical-align: middle; margin-right: 0.35rem; flex-shrink: 0;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, #000 12%, transparent);
+    }
+
+    /* Native Homebridge Settings look (list-group-box + grey-text help) */
+    .grey-text,
+    .grey-text a {
+      color: #999999 !important;
+    }
+    .primary-text {
+      color: var(--primary, var(--bs-primary, #673ab7)) !important;
+    }
+    .hb-section-title {
+      font-size: 1.05rem;
+      font-weight: 300;
+      margin: 1.15rem 0 0;
+      letter-spacing: 0;
+    }
+    .hb-settings-block:first-child > .hb-section-title {
+      margin-top: 0.15rem;
+    }
+    .list-group-box {
+      border: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.125));
+      border-radius: 0.5rem;
+      overflow: hidden;
+      background: transparent;
+    }
+    .list-group-box > .list-group-item {
+      border: none !important;
+      border-bottom: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.125)) !important;
+      border-radius: 0 !important;
+      font-weight: 300;
+      padding: 0.55rem 1rem;
+      background: var(--bs-body-bg, #fff);
+    }
+    .list-group-box > .list-group-item:first-child {
+      border-top-left-radius: 8px !important;
+      border-top-right-radius: 8px !important;
+    }
+    .list-group-box > .list-group-item:last-child {
+      border-bottom: none !important;
+      border-bottom-left-radius: 8px !important;
+      border-bottom-right-radius: 8px !important;
+    }
+    .list-group-box .grey-text {
+      display: inline;
+      font-size: 0.875rem;
+      line-height: 1.4;
+      text-wrap: pretty;
+    }
+    .list-group-box .form-control,
+    .list-group-box .form-select {
+      max-width: 14rem;
+    }
+    .list-group-box .form-control.hb-input-sm,
+    .list-group-box .form-select.hb-input-sm {
+      max-width: 8rem;
+    }
+    .hb-nested-fields {
+      display: grid;
+      gap: 0.65rem;
+      padding-top: 0.35rem;
+    }
+    .hb-nested-fields .form-label {
+      font-size: 0.8rem;
+      margin-bottom: 0.2rem;
+      font-weight: 400;
+    }
+    .timer-preset-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem 0.5rem;
+      margin-top: 0.35rem;
+    }
+    .timer-preset-label {
+      flex: 0 0 100%;
+      margin-bottom: 0.1rem;
+    }
+    @media (min-width: 420px) {
+      .timer-preset-label {
+        flex: 0 0 auto;
+        margin-bottom: 0;
+      }
+    }
+    .timer-preset-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+    .timer-preset-btn {
+      --bs-btn-padding-y: 0.2rem;
+      --bs-btn-padding-x: 0.55rem;
+      --bs-btn-font-size: 0.78rem;
+    }
+    .timer-overlap-alert:empty {
+      display: none;
+    }
+    .timer-overlap-alert-inner {
+      font-size: 0.85rem;
+      line-height: 1.35;
+    }
+    .timer-overlap-alert-inner .btn-close {
+      padding: 0.55rem;
+    }
+
+    .device-config {
+      display: grid;
+      gap: 0.15rem;
+      margin-top: 0.85rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid var(--bs-border-color);
+    }
+
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid color-mix(in srgb, var(--bs-border-color) 80%, transparent);
+    }
+    .setting-row:last-child { border-bottom: 0; }
+
+    .settings-group { margin-bottom: 0.25rem; }
+
+    .support-content {
+      max-width: 42rem;
+    }
+    .support-content h5 {
+      margin-top: 1.25rem;
+    }
+    .support-content h5:first-of-type {
+      margin-top: 0.15rem;
+    }
+    .support-content ul,
+    .support-content ol {
+      padding-left: 1.15rem;
+      margin-bottom: 0.75rem;
+    }
+    .intro-panel {
+      max-width: 34rem;
+      margin: 1.5rem auto 0;
+      padding: 0 0.5rem;
+    }
+    .intro-steps {
+      max-width: 28rem;
+      line-height: 1.45;
+    }
+
+    .restart-banner {
+      position: sticky; top: 0; z-index: 20;
+      border-radius: var(--wled-radius);
+      border-left: 3px solid var(--wled-accent);
+      animation: wled-in 220ms var(--wled-ease);
+    }
+
+    /* Empty / loading */
+    .empty-state {
+      text-align: center;
+      padding: 2.75rem 1.25rem;
+      border: 1px dashed color-mix(in srgb, var(--bs-border-color) 90%, var(--wled-accent));
+      border-radius: var(--wled-radius);
+      background: color-mix(in srgb, var(--wled-accent) 4%, var(--bs-body-bg));
+    }
+    .empty-state p {
+      max-width: 34ch;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.45;
+      text-wrap: pretty;
+    }
+    .skeleton-stack { display: grid; gap: 0.75rem; }
+    .skeleton-card {
+      height: 4.25rem;
+      border-radius: var(--wled-radius);
+      background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--bs-secondary-bg, #e9ecef) 80%, transparent) 0%,
+        color-mix(in srgb, var(--bs-secondary-bg, #e9ecef) 40%, transparent) 50%,
+        color-mix(in srgb, var(--bs-secondary-bg, #e9ecef) 80%, transparent) 100%
+      );
+      background-size: 200% 100%;
+      animation: wled-shimmer 1.2s ease-in-out infinite;
+    }
+
+    .list-group-item {
+      border-color: color-mix(in srgb, var(--bs-border-color) 85%, transparent);
+      transition: background-color 160ms var(--wled-ease);
+    }
+    .list-group-item:hover {
+      background: color-mix(in srgb, var(--wled-accent) 5%, var(--bs-body-bg));
+    }
+
+    .discovered-card {
+      border-radius: var(--wled-radius) !important;
+      border: 1px solid var(--bs-border-color) !important;
+      transition: box-shadow 180ms var(--wled-ease), border-color 180ms var(--wled-ease);
+    }
+    .discovered-card:hover {
+      border-color: color-mix(in srgb, var(--wled-accent) 35%, var(--bs-border-color)) !important;
+      box-shadow: var(--wled-shadow);
+    }
+
+    @keyframes wled-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: none; }
+    }
+    @keyframes wled-pulse {
+      0%, 100% { opacity: 0.45; }
+      50% { opacity: 1; }
+    }
+    @keyframes wled-shimmer {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }

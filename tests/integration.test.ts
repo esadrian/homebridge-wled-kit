@@ -3,7 +3,7 @@
  */
 
 import { WLEDPlatform } from '../src/platform';
-import { WLEDDevice } from '../src/wledDevice';
+import { WLEDDevice } from '../src/device/wledDevice';
 import { MockLogger, MockAPI, createMockPlatformConfig, createMockDeviceConfig } from './mocks/homebridge';
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
@@ -163,6 +163,9 @@ describe('Integration Tests', () => {
 
       const device = new WLEDDevice(mockLogger, '192.168.1.100', 80, 10, false);
 
+      // Let the constructor's initial poll finish before we attach listeners.
+      await new Promise(resolve => setTimeout(resolve, 200));
+
       const stateListener = jest.fn();
       device.addStateListener(stateListener);
 
@@ -177,7 +180,7 @@ describe('Integration Tests', () => {
       await (device as any).updateStateViaHTTP();
 
       expect(stateListener).toHaveBeenCalled();
-      const newState = stateListener.mock.calls[0][0];
+      const newState = stateListener.mock.calls.at(-1)?.[0];
       expect(newState.on).toBe(true);
       expect(newState.brightness).toBe(100);
 
@@ -258,13 +261,22 @@ describe('Integration Tests', () => {
         '3': { n: 'Relax', ql: 'RX' },
       });
 
-      mockAxios.onPost('http://192.168.1.100:80/json/state').reply(200);
-      mockAxios.onGet('http://192.168.1.100:80/json/state').reply(200, {
+      let activePreset = 1;
+
+      mockAxios.onPost('http://192.168.1.100:80/json/state').reply((config) => {
+        const body = JSON.parse(config.data as string);
+        if (typeof body.ps === 'number') {
+          activePreset = body.ps;
+        }
+        return [200];
+      });
+
+      mockAxios.onGet('http://192.168.1.100:80/json/state').reply(() => [200, {
         on: true,
         bri: 255,
-        ps: 1,
+        ps: activePreset,
         seg: [{ col: [[255, 128, 0]], fx: 0 }],
-      });
+      }]);
 
       const device = new WLEDDevice(mockLogger, '192.168.1.100', 80, 10, false);
 

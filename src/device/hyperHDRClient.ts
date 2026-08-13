@@ -7,12 +7,16 @@ export interface HyperHDRConfig {
   port: number;
   component: 'LEDDEVICE' | 'ALL';
   token?: string;
+  /** Optional seconds between HyperHDR→HomeKit state polls. */
+  pollInterval?: number;
 }
 
 export class HyperHDRClient {
   private readonly url: string;
   private readonly headers: Record<string, string>;
   private cachedState: boolean | undefined;
+  private pollTimer?: NodeJS.Timeout;
+  private onChange?: (on: boolean) => void;
 
   constructor(private readonly log: Logger, private readonly config: HyperHDRConfig) {
     this.url = `http://${config.host}:${config.port}/json-rpc`;
@@ -21,11 +25,9 @@ export class HyperHDRClient {
 
   async getState(): Promise<boolean> {
     if (this.cachedState !== undefined) {
-      // Return cache immediately, refresh in background for next poll
       this.fetchState().catch(() => {});
       return this.cachedState;
     }
-    // First call: fetch synchronously so HomeKit gets a real value
     return this.fetchState();
   }
 
@@ -37,13 +39,39 @@ export class HyperHDRClient {
       } else {
         const components: Array<{ name: string; enabled: boolean }> = response.data?.info?.components || [];
         const comp = components.find(c => c.name === this.config.component);
-        this.cachedState = comp?.enabled ?? false;
+        const next = comp?.enabled ?? false;
+        const changed = this.cachedState !== undefined && this.cachedState !== next;
+        this.cachedState = next;
         this.log.debug(`[HyperHDR] getState() → ${this.config.component} = ${this.cachedState}`);
+        if (changed && this.onChange) {
+          this.onChange(next);
+        }
       }
     } catch (error: any) {
       this.log.warn(`[HyperHDR] getState() failed: ${error?.message ?? error}`);
     }
     return this.cachedState ?? false;
+  }
+
+  /**
+   * Poll HyperHDR and notify when component state changes (HomeKit sync).
+   */
+  startPolling(intervalSeconds: number, onChange?: (on: boolean) => void): void {
+    this.stopPolling();
+    this.onChange = onChange;
+    const ms = Math.max(2, intervalSeconds) * 1000;
+    this.pollTimer = setInterval(() => {
+      this.fetchState().catch(() => {});
+    }, ms);
+    this.fetchState().catch(() => {});
+  }
+
+  stopPolling(): void {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = undefined;
+    }
+    this.onChange = undefined;
   }
 
   async setBrightness(brightness: number): Promise<void> {
@@ -76,7 +104,50 @@ export class HyperHDRClient {
       }
     } catch (error: any) {
       this.log.warn(`[HyperHDR] setPower(${on}) failed: ${error?.message ?? error}`);
-      // Never re-throw — HyperHDR is a side-channel, WLED must continue
     }
+  }
+
+  /** Lightweight reachability/component probe for the Custom UI. */
+  async ping(): Promise<{ online: boolean; enabled?: boolean; version?: string; message?: string }> {
+    try {
+      const response = await axios.post(this.url, { command: 'serverinfo' }, { headers: this.headers, timeout: 4000 });
+      if (response.data?.success === false) {
+        return { online: false, message: response.data?.error || 'Rejected' };
+      }
+      const components: Array<{ name: string; enabled: boolean }> = response.data?.info?.components || [];
+      const comp = components.find(c => c.name === this.config.component);
+      return {
+        online: true,
+        enabled: comp?.enabled ?? false,
+        version: response.data?.info?.hyperhdr?.version || response.data?.info?.version,
+      };
+    } catch (error: any) {
+      return { online: false, message: error?.code || error?.message || 'Unreachable' };
+    }
+  }
+
+  /** One-shot ping without keeping a long-lived client (Custom UI). */
+  static async pingOnce(opts: {
+    host: string;
+    port?: number;
+    token?: string;
+    component?: string;
+  }): Promise<{ online: boolean; enabled?: boolean; version?: string; message?: string }> {
+    const noopLog = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      log: () => {},
+      success: () => {},
+    } as unknown as Logger;
+    const client = new HyperHDRClient(noopLog, {
+      enabled: true,
+      host: opts.host,
+      port: opts.port || 8090,
+      component: (opts.component || 'LEDDEVICE') as HyperHDRConfig['component'],
+      token: opts.token,
+    });
+    return client.ping();
   }
 }

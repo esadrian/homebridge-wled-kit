@@ -1,21 +1,51 @@
-import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic } from 'homebridge';
-import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
-import { WLEDLightAccessory } from './platformAccessory';
-import { WLEDPresetsAccessory } from './presetsAccessory';
-import { WLEDCombinedAccessory } from './combinedAccessory';
-import { WLEDNightlightAccessory } from './nightlightAccessory';
-import { WLEDDevice } from './wledDevice';
-import { WLEDDiscoveryService, DiscoveredWLEDDevice } from './discoveryService';
-import { HyperHDRClient, HyperHDRConfig } from './hyperHDRClient';
+import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic, Categories } from 'homebridge';
+import { PLATFORM_NAME, PLUGIN_NAME } from './shared/settings';
+import { WLEDLightAccessory } from './accessories/platformAccessory';
+import { WLEDPresetsAccessory } from './accessories/presetsAccessory';
+import { WLEDCombinedAccessory } from './accessories/combinedAccessory';
+import { WLEDNightlightAccessory } from './accessories/nightlightAccessory';
+import { WLEDSegmentAccessory } from './accessories/segmentAccessory';
+import { WLEDEffectsAccessory } from './accessories/effectsAccessory';
+import { WLEDDevice } from './device/wledDevice';
+import { WLEDDiscoveryService, DiscoveredWLEDDevice } from './discovery/discoveryService';
+import { HyperHDRClient, HyperHDRConfig } from './device/hyperHDRClient';
+import {
+  getDevicesFromConfig,
+  resolveDisplayName,
+  resolveNightlightConfig,
+  resolveDeviceSettings,
+  resolveDiscoveryDefaults,
+} from './shared/wledUtils';
+import {
+  DeviceConfig,
+  DeviceSettings,
+  WLEDPlatformConfig,
+} from './shared/configTypes';
+import { PlatformContext } from './shared/platformContext';
+
+interface RegisterDeviceParams {
+  host: string;
+  port: number;
+  displayName: string;
+  deviceSettings: DeviceSettings;
+  deviceContext: Record<string, unknown>;
+  /** When true, update restored accessory display names and wire HyperHDR. */
+  isManual: boolean;
+  /** Original config entry (manual) for preset-change detection. */
+  configDevice?: DeviceConfig;
+}
 
 /**
  * HomebridgePlatform
  * This class is the main constructor for your plugin, this is where you should
  * parse the user config and discover/register accessories with Homebridge.
  */
-export class WLEDPlatform implements DynamicPlatformPlugin {
+export class WLEDPlatform implements DynamicPlatformPlugin, PlatformContext {
   public readonly Service: typeof Service;
   public readonly Characteristic: typeof Characteristic;
+
+  public readonly log: Logger;
+  public readonly config: WLEDPlatformConfig;
 
   // this is used to track restored cached accessories
   public readonly accessories: PlatformAccessory[] = [];
@@ -23,14 +53,19 @@ export class WLEDPlatform implements DynamicPlatformPlugin {
   // keyed by device host
   public readonly wledDevices: Map<string, WLEDDevice> = new Map();
 
+  // keyed by WLED device host — one HyperHDR client per configured device (no cross-talk)
+  private readonly hyperHDRClients: Map<string, HyperHDRClient> = new Map();
+
   // discovery service
   private discoveryService: WLEDDiscoveryService;
 
   constructor(
-    public readonly log: Logger,
-    public readonly config: PlatformConfig,
+    log: Logger,
+    config: PlatformConfig,
     public readonly api: API,
   ) {
+    this.config = config as WLEDPlatformConfig;
+    this.log = this.createFilteredLogger(log, this.config.logLevel);
     this.log.debug('Finished initializing platform:', this.config.name);
     this.Service = this.api.hap.Service;
     this.Characteristic = this.api.hap.Characteristic;
@@ -56,66 +91,342 @@ export class WLEDPlatform implements DynamicPlatformPlugin {
     });
   }
 
+  /**
+   * Apply config.logLevel on top of Homebridge's logger (debug/info/warn/error).
+   */
+  private createFilteredLogger(base: Logger, level: unknown): Logger {
+    const order = ['error', 'warn', 'info', 'debug'] as const;
+    const configured = typeof level === 'string' ? level.toLowerCase() : 'info';
+    const minIdx = Math.max(0, order.indexOf(configured as typeof order[number]));
+    const allow = (method: typeof order[number]) => order.indexOf(method) <= minIdx;
+    const forward = (fn: (...a: any[]) => void, method: typeof order[number]) =>
+      (...args: any[]) => { if (allow(method)) fn(...args); };
+
+    const anyBase = base as any;
+    return {
+      debug: forward(base.debug.bind(base), 'debug'),
+      info: forward(base.info.bind(base), 'info'),
+      warn: forward(base.warn.bind(base), 'warn'),
+      error: forward(base.error.bind(base), 'error'),
+      log: forward((typeof anyBase.log === 'function' ? anyBase.log.bind(base) : base.info.bind(base)), 'info'),
+      success: forward((typeof anyBase.success === 'function' ? anyBase.success.bind(base) : base.info.bind(base)), 'info'),
+    } as Logger;
+  }
+
   public getTvNameSuffix(): string {
-    const suffix = (this.config as any)?.tvNameSuffix;
+    const suffix = this.config.tvNameSuffix;
     return (typeof suffix === 'string' && suffix.trim().length > 0) ? suffix.trim() : 'Presets';
   }
 
   public getCustomInputLabel(): string {
-    const label = (this.config as any)?.customInputLabel;
+    const label = this.config.customInputLabel;
     return (typeof label === 'string' && label.trim().length > 0) ? label.trim() : 'Custom';
   }
 
-  private buildHyperHDRClient(deviceSettings: any): HyperHDRClient | undefined {
-    const cfg = deviceSettings?.hyperHDR;
+  private buildHyperHDRClient(deviceHost: string, deviceSettings: DeviceSettings): HyperHDRClient | undefined {
+    // Always stop any previous client for this host (config reload / reconfigure).
+    const previous = this.hyperHDRClients.get(deviceHost);
+    if (previous) {
+      previous.stopPolling();
+      this.hyperHDRClients.delete(deviceHost);
+    }
+
+    const cfg = deviceSettings.hyperHDR;
     if (!cfg?.enabled || !cfg.host) return undefined;
-    return new HyperHDRClient(this.log, {
+
+    const client = new HyperHDRClient(this.log, {
       enabled: true,
       host: cfg.host,
       port: cfg.port || 8090,
       component: (cfg.component || 'LEDDEVICE') as HyperHDRConfig['component'],
       token: cfg.token || undefined,
+      pollInterval: typeof cfg.pollInterval === 'number' ? cfg.pollInterval : undefined,
     });
+    this.hyperHDRClients.set(deviceHost, client);
+    return client;
+  }
+
+  /** Stop HyperHDR polling for a WLED host (no effect on other devices). */
+  private releaseHyperHDRClient(deviceHost: string): void {
+    const client = this.hyperHDRClients.get(deviceHost);
+    if (client) {
+      client.stopPolling();
+      this.hyperHDRClients.delete(deviceHost);
+    }
+  }
+
+  private getConfiguredDevices(): DeviceConfig[] {
+    return getDevicesFromConfig(this.config);
+  }
+
+  private getGlobalNightlight() {
+    return this.config.manualDevicesSection?.nightlight || {};
   }
 
   /**
-   * Extract a friendly display name from the hostname
+   * Restore or create a platform accessory with shared boilerplate.
    */
-  private getDisplayNameFromHost(host: string, fallbackName: string): string {
-    // Remove .local suffix
-    const name = host.replace(/\.local$/i, '');
-
-    // If it's an IP address, use the fallback name
-    if (/^\d+\.\d+\.\d+\.\d+$/.test(name)) {
-      return fallbackName;
+  private ensureAccessory(opts: {
+    uuid: string;
+    displayName: string;
+    category?: Categories;
+    context: any;
+    updateDisplayName?: boolean;
+    kind?: string;
+    factory: (accessory: PlatformAccessory) => void;
+  }): PlatformAccessory {
+    const kindLabel = opts.kind || 'accessory';
+    const existing = this.accessories.find(a => a.UUID === opts.uuid);
+    if (existing) {
+      this.log.info(`Restoring existing ${kindLabel} accessory from cache:`, existing.displayName);
+      if (opts.updateDisplayName && existing.displayName !== opts.displayName) {
+        this.log.info(`Updating display name from "${existing.displayName}" to "${opts.displayName}"`);
+        existing.displayName = opts.displayName;
+      }
+      existing.context.device = opts.context;
+      opts.factory(existing);
+      this.api.updatePlatformAccessories([existing]);
+      return existing;
     }
 
-    // Convert hostname to title case (e.g., "holiday-lights" -> "Holiday Lights")
-    return name
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+    this.log.info(`Adding new ${kindLabel} accessory:`, opts.displayName);
+    const accessory = opts.category !== undefined
+      ? new this.api.platformAccessory(opts.displayName, opts.uuid, opts.category)
+      : new this.api.platformAccessory(opts.displayName, opts.uuid);
+    accessory.context.device = opts.context;
+    opts.factory(accessory);
+    this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+    if (!this.accessories.find(a => a.UUID === opts.uuid)) {
+      this.accessories.push(accessory);
+    }
+    return accessory;
+  }
+
+  private unregisterByUuid(uuid: string, reason: string): void {
+    const existing = this.accessories.find(a => a.UUID === uuid);
+    if (!existing) {
+      return;
+    }
+    this.log.info(reason);
+    this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existing]);
+    this.accessories.splice(this.accessories.findIndex(a => a.UUID === uuid), 1);
   }
 
   /**
-   * Generate the UUID for a device's light accessory
+   * Whether presets should be exposed (standalone TV or via Combined accessory).
    */
+  private shouldExposePresets(deviceSettings: DeviceSettings, forDiscovered = false): boolean {
+    if (deviceSettings.usePresetService !== undefined) {
+      return deviceSettings.usePresetService !== false;
+    }
+    if (forDiscovered) {
+      return resolveDiscoveryDefaults(this.config).usePresetService;
+    }
+    return true;
+  }
+
   private lightUuid(host: string): string {
     return this.api.hap.uuid.generate(host + ':light');
   }
 
-  /**
-   * Generate the UUID for a device's presets/TV accessory
-   */
   private tvUuid(host: string): string {
     return this.api.hap.uuid.generate(host + ':tv');
   }
 
-  /**
-   * Generate the UUID for a device's nightlight accessory
-   */
   private nightlightUuid(host: string): string {
     return this.api.hap.uuid.generate(host + ':nightlight');
+  }
+
+  private segmentUuid(host: string, segmentIndex: number): string {
+    return this.api.hap.uuid.generate(`${host}:seg:${segmentIndex}`);
+  }
+
+  private effectsUuid(host: string): string {
+    return this.api.hap.uuid.generate(host + ':effects');
+  }
+
+  private readonly MAX_SEGMENTS = 8;
+
+  private async registerSegmentsAndEffects(
+    host: string,
+    displayName: string,
+    deviceContext: Record<string, unknown>,
+    deviceSettings: DeviceSettings,
+    wledDevice: WLEDDevice,
+  ): Promise<void> {
+    const exposeSegments = deviceSettings.exposeSegments === true;
+    const exposeEffects = deviceSettings.exposeEffects === true;
+
+    const existingSegs = this.accessories.filter(a =>
+      a.context?.device?.host === host && typeof a.context?.device?.segmentIndex === 'number',
+    );
+
+    if (exposeSegments) {
+      try {
+        const segments = await wledDevice.getSegments();
+        const indices = segments
+          .map((s, i) => (typeof s.id === 'number' ? s.id : i))
+          .filter((id) => id > 0)
+          .slice(0, this.MAX_SEGMENTS);
+
+        const keep = new Set(indices.map(i => this.segmentUuid(host, i)));
+        for (const acc of existingSegs) {
+          if (!keep.has(acc.UUID)) {
+            this.unregisterByUuid(acc.UUID, `Removing stale segment accessory ${acc.displayName}`);
+          }
+        }
+
+        for (const segIndex of indices) {
+          const uuid = this.segmentUuid(host, segIndex);
+          const segName = segments[segIndex]?.name || `Segment ${segIndex}`;
+          this.ensureAccessory({
+            uuid,
+            displayName: `${displayName} ${segName}`,
+            context: { ...deviceContext, segmentIndex: segIndex },
+            kind: 'segment',
+            factory: (accessory) => new WLEDSegmentAccessory(this, accessory, wledDevice),
+          });
+        }
+      } catch (error) {
+        this.log.warn(`Failed to expose segments for ${displayName}:`, error);
+      }
+    } else {
+      for (const acc of existingSegs) {
+        this.unregisterByUuid(acc.UUID, `Segments disabled for ${displayName}. Unregistering ${acc.displayName}...`);
+      }
+    }
+
+    const effectsUuid = this.effectsUuid(host);
+    if (exposeEffects) {
+      this.ensureAccessory({
+        uuid: effectsUuid,
+        displayName: `${displayName} Effects`,
+        context: deviceContext,
+        kind: 'effects',
+        factory: (accessory) => new WLEDEffectsAccessory(this, accessory, wledDevice),
+      });
+    } else {
+      this.unregisterByUuid(effectsUuid, `Effects disabled for ${displayName}. Unregistering effects accessory...`);
+    }
+  }
+
+  /**
+   * Shared registration path for manual and discovered devices.
+   */
+  private registerDevice(params: RegisterDeviceParams): void {
+    const { host, port, displayName, deviceSettings, deviceContext, isManual, configDevice } = params;
+
+    const exposePresets = this.shouldExposePresets(deviceSettings, !isManual);
+    const singleAccessoryWithTV = deviceSettings.singleAccessoryWithTV === true && exposePresets;
+    const hyperHDRClient = isManual
+      ? this.buildHyperHDRClient(host, deviceSettings)
+      : undefined;
+
+    const pollInterval = typeof deviceSettings.pollInterval === 'number'
+      ? deviceSettings.pollInterval
+      : 10;
+    const useWebSockets = deviceSettings.useWebSockets !== false;
+
+    const wledDevice = new WLEDDevice(
+      this.log,
+      host,
+      port,
+      pollInterval,
+      useWebSockets,
+    );
+    this.wledDevices.set(host, wledDevice);
+
+    const lightUuid = this.lightUuid(host);
+    const tvUuid = this.tvUuid(host);
+    const nightlightUuid = this.nightlightUuid(host);
+
+    this.ensureAccessory({
+      uuid: lightUuid,
+      displayName,
+      context: deviceContext,
+      updateDisplayName: isManual,
+      kind: 'light',
+      factory: (accessory) => {
+        if (singleAccessoryWithTV) {
+          new WLEDCombinedAccessory(this, accessory, wledDevice, hyperHDRClient);
+        } else {
+          new WLEDLightAccessory(this, accessory, wledDevice, hyperHDRClient);
+        }
+      },
+    });
+
+    const nightlight = resolveNightlightConfig(deviceSettings, this.getGlobalNightlight());
+    if (nightlight.enabled && nightlight.timers.length > 0) {
+      this.ensureAccessory({
+        uuid: nightlightUuid,
+        displayName: `${displayName} Nightlight`,
+        context: { ...deviceContext, deviceSettings },
+        kind: 'nightlight',
+        factory: (accessory) => new WLEDNightlightAccessory(this, accessory, wledDevice),
+      });
+    } else {
+      this.unregisterByUuid(
+        nightlightUuid,
+        `Nightlight disabled for ${displayName}. Unregistering nightlight accessory...`,
+      );
+    }
+
+    void this.registerSegmentsAndEffects(host, displayName, deviceContext, deviceSettings, wledDevice);
+
+    const tvDisplayName = `${displayName} ${this.getTvNameSuffix()}`;
+
+    if (singleAccessoryWithTV) {
+      this.unregisterByUuid(
+        tvUuid,
+        `Single-accessory mode enabled for ${displayName}. Unregistering standalone TV accessory...`,
+      );
+      return;
+    }
+
+    if (!exposePresets) {
+      this.unregisterByUuid(
+        tvUuid,
+        `Preset controls disabled for ${displayName}. Unregistering TV accessory...`,
+      );
+      return;
+    }
+
+    const existingTVAccessory = this.accessories.find(a => a.UUID === tvUuid);
+    const oldEnabledPresets = existingTVAccessory?.context.device?.deviceSettings?.enabledPresets || [];
+    const newEnabledPresets = configDevice?.deviceSettings?.enabledPresets
+      || deviceSettings.enabledPresets
+      || [];
+    const presetsChanged = isManual
+      && JSON.stringify([...oldEnabledPresets].sort()) !== JSON.stringify([...newEnabledPresets].sort());
+
+    if (existingTVAccessory && presetsChanged) {
+      this.log.info(`Enabled presets changed for ${displayName}. Re-registering TV accessory to force Home app refresh...`);
+      this.log.debug(`Old presets: ${JSON.stringify(oldEnabledPresets)}`);
+      this.log.debug(`New presets: ${JSON.stringify(newEnabledPresets)}`);
+
+      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingTVAccessory]);
+
+      const newTVAccessory = new this.api.platformAccessory(tvDisplayName, tvUuid, this.api.hap.Categories.TELEVISION);
+      newTVAccessory.context.device = deviceContext;
+      new WLEDPresetsAccessory(this, newTVAccessory, wledDevice);
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [newTVAccessory]);
+
+      const index = this.accessories.findIndex(a => a.UUID === tvUuid);
+      if (index !== -1) {
+        this.accessories[index] = newTVAccessory;
+      } else {
+        this.accessories.push(newTVAccessory);
+      }
+    } else {
+      this.ensureAccessory({
+        uuid: tvUuid,
+        displayName: tvDisplayName,
+        category: this.api.hap.Categories.TELEVISION,
+        context: deviceContext,
+        kind: 'TV',
+        factory: (accessory) => new WLEDPresetsAccessory(this, accessory, wledDevice),
+      });
+    }
   }
 
   /**
@@ -124,17 +435,14 @@ export class WLEDPlatform implements DynamicPlatformPlugin {
   private handleDiscoveredDevices(devices: DiscoveredWLEDDevice[]): void {
     this.log.info(`Discovered ${devices.length} WLED devices on the network`);
 
-    // Log all discovered devices for debugging
     for (const device of devices) {
       this.log.debug(`Discovery found: ${device.name} at ${device.host}:${device.port} (ID: ${device.id}, Method: ${device.discoveryMethod})`);
     }
 
-    // Process each discovered device
     for (const device of devices) {
-      // Skip if this device is already manually configured
-      const manualDevices = this.config.devices || [];
-      const isManuallyConfigured = manualDevices.some((d: any) =>
-        d.host === device.host || (d.name && d.name === device.name)
+      const manualDevices = this.getConfiguredDevices();
+      const isManuallyConfigured = manualDevices.some((d) =>
+        d.host === device.host || (d.name && d.name === device.name),
       );
 
       if (isManuallyConfigured) {
@@ -142,125 +450,51 @@ export class WLEDPlatform implements DynamicPlatformPlugin {
         continue;
       }
 
-      // Check if we already know about this device (by host)
       if (this.wledDevices.has(device.host)) {
         this.log.info(`Skipping discovered device ${device.name} at ${device.host} - accessory already exists`);
         continue;
       }
 
-      // Generate a display name from the hostname
-      const displayName = this.getDisplayNameFromHost(device.host, device.name);
-
+      const displayName = resolveDisplayName(device.host, device.name, device.name);
       this.log.info(`Adding discovered WLED device: ${displayName} at ${device.host}:${device.port}`);
 
-      // Get settings from either nested or flat config structure
-      const defaultSettings = this.config.defaultSettingsSection || {};
-      const defaultPollInterval = defaultSettings.defaultPollInterval !== undefined
-        ? defaultSettings.defaultPollInterval
-        : this.config.defaultPollInterval || 10;
-      const defaultUseWebSockets = defaultSettings.defaultUseWebSockets !== undefined
-        ? defaultSettings.defaultUseWebSockets
-        : this.config.defaultUseWebSockets !== false;
+      const defaults = resolveDiscoveryDefaults(this.config);
+      const deviceSettings: DeviceSettings = {
+        pollInterval: defaults.pollInterval,
+        useWebSockets: defaults.useWebSockets,
+        usePresetService: defaults.usePresetService,
+      };
 
-      // Create the WLED device instance
-      const wledDevice = new WLEDDevice(
-        this.log,
-        device.host,
-        device.port,
-        defaultPollInterval,
-        defaultUseWebSockets,
-      );
-
-      this.wledDevices.set(device.host, wledDevice);
-
-      const lightUuid = this.lightUuid(device.host);
-      const tvUuid = this.tvUuid(device.host);
-      const nightlightUuid = this.nightlightUuid(device.host);
-      const deviceContext = { name: displayName, host: device.host, port: device.port };
-
-      // --- Light accessory ---
-      const existingLightAccessory = this.accessories.find(a => a.UUID === lightUuid);
-      if (existingLightAccessory) {
-        this.log.info('Restoring existing light accessory from cache:', existingLightAccessory.displayName);
-        existingLightAccessory.context.device = deviceContext;
-        new WLEDLightAccessory(this, existingLightAccessory, wledDevice);
-        this.api.updatePlatformAccessories([existingLightAccessory]);
-      } else {
-        this.log.info('Adding new light accessory:', displayName);
-        const lightAccessory = new this.api.platformAccessory(displayName, lightUuid);
-        lightAccessory.context.device = deviceContext;
-        new WLEDLightAccessory(this, lightAccessory, wledDevice);
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [lightAccessory]);
-      }
-
-      // --- Nightlight accessory (auto-discovered) ---
-      const globalNightlight = (this.config as any)?.manualDevicesSection?.nightlight || {};
-      if (globalNightlight.enabled === true && Array.isArray(globalNightlight.timers) && globalNightlight.timers.length > 0) {
-        const existingNightlightAccessory = this.accessories.find(a => a.UUID === nightlightUuid);
-        const nightlightDisplayName = `${displayName} Nightlight`;
-
-        if (existingNightlightAccessory) {
-          this.log.info('Restoring existing nightlight accessory from cache:', existingNightlightAccessory.displayName);
-          existingNightlightAccessory.context.device = { ...deviceContext, deviceSettings: { nightlight: globalNightlight } };
-          new WLEDNightlightAccessory(this, existingNightlightAccessory, wledDevice);
-          this.api.updatePlatformAccessories([existingNightlightAccessory]);
-        } else {
-          this.log.info('Adding new nightlight accessory:', nightlightDisplayName);
-          const nightlightAccessory = new this.api.platformAccessory(nightlightDisplayName, nightlightUuid);
-          nightlightAccessory.context.device = { ...deviceContext, deviceSettings: { nightlight: globalNightlight } };
-          new WLEDNightlightAccessory(this, nightlightAccessory, wledDevice);
-          this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [nightlightAccessory]);
-        }
-      }
-
-      // --- Presets/TV accessory ---
-      const tvDisplayName = `${displayName} ${this.getTvNameSuffix()}`;
-      const existingTVAccessory = this.accessories.find(a => a.UUID === tvUuid);
-      if (existingTVAccessory) {
-        this.log.info('Restoring existing TV accessory from cache:', existingTVAccessory.displayName);
-        existingTVAccessory.context.device = deviceContext;
-        new WLEDPresetsAccessory(this, existingTVAccessory, wledDevice);
-        this.api.updatePlatformAccessories([existingTVAccessory]);
-      } else {
-        this.log.info('Adding new TV accessory:', tvDisplayName);
-        const tvAccessory = new this.api.platformAccessory(tvDisplayName, tvUuid, this.api.hap.Categories.TELEVISION);
-        tvAccessory.context.device = deviceContext;
-        new WLEDPresetsAccessory(this, tvAccessory, wledDevice);
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [tvAccessory]);
-      }
+      this.registerDevice({
+        host: device.host,
+        port: device.port,
+        displayName,
+        deviceSettings,
+        deviceContext: { name: displayName, host: device.host, port: device.port },
+        isManual: false,
+      });
     }
   }
 
   /**
    * This function is invoked when homebridge restores cached accessories from disk at startup.
-   * It should be used to setup event handlers for characteristics and update respective values.
    */
   configureAccessory(accessory: PlatformAccessory) {
     this.log.info('Loading accessory from cache:', accessory.displayName);
-
-    // add the restored accessory to the accessories cache so we can track if it has already been registered
     this.accessories.push(accessory);
   }
 
-
   /**
    * Process manually configured devices
-   * Accessories must only be registered once, previously created accessories
-   * must not be registered again to prevent "duplicate UUID" errors.
    */
   discoverDevices() {
-    // Get devices list from either nested or flat config structure
-    const devices = this.config.manualDevicesSection?.devices || this.config.devices || [];
+    const devices = this.getConfiguredDevices();
 
-    // Warn if no devices are configured
     if (devices.length === 0) {
       this.log.warn('No WLED devices configured. Use the Custom Plugin UI to discover devices or manually add them to your config.');
-      // Don't return early - we still need to clean up any old accessories
     }
 
-    // loop over the configured devices and register each one if it has not already been registered
     for (const device of devices) {
-      // check that the device has all required fields
       if (!device.name || !device.host) {
         this.log.error('Device missing required fields (name and host):', device);
         continue;
@@ -270,177 +504,67 @@ export class WLEDPlatform implements DynamicPlatformPlugin {
       const tvUuid = this.tvUuid(device.host);
       const nightlightUuid = this.nightlightUuid(device.host);
 
-      // Skip disabled devices
       if (device.enabled === false) {
         this.log.info(`Skipping disabled device: ${device.name}`);
-
-        // If these accessories were previously registered, unregister them
         const toRemove = this.accessories.filter(a =>
-          a.UUID === lightUuid || a.UUID === tvUuid || a.UUID === nightlightUuid,
+          a.UUID === lightUuid
+          || a.UUID === tvUuid
+          || a.UUID === nightlightUuid
+          || a.UUID === this.effectsUuid(device.host)
+          || (a.context?.device?.host === device.host && typeof a.context?.device?.segmentIndex === 'number'),
         );
         if (toRemove.length > 0) {
           this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, toRemove);
         }
-
+        this.releaseHyperHDRClient(device.host);
         continue;
       }
 
-      // Handle nested device settings if present
-      const deviceSettings = device.deviceSettings || device;
-      const singleAccessoryWithTV = deviceSettings.singleAccessoryWithTV === true;
-      const hyperHDRClient = this.buildHyperHDRClient(deviceSettings);
-
-      // Generate a display name from the hostname for better legibility
-      const displayName = this.getDisplayNameFromHost(device.host, device.name);
-
-      // create the WLED device instance
-      const wledDevice = new WLEDDevice(
-        this.log,
-        device.host,
-        device.port || 80,
-        deviceSettings.pollInterval || 10,
-        deviceSettings.useWebSockets !== false, // Default to true if not specified
-      );
-
-      this.wledDevices.set(device.host, wledDevice);
-
+      const deviceSettings = resolveDeviceSettings(device);
+      const displayName = resolveDisplayName(device.host, device.name, device.name);
       const deviceContext = { ...device, name: displayName };
 
-      // --- Light accessory ---
-      const existingLightAccessory = this.accessories.find(a => a.UUID === lightUuid);
-      if (existingLightAccessory) {
-        this.log.info('Restoring existing light accessory from cache:', existingLightAccessory.displayName);
-        if (existingLightAccessory.displayName !== displayName) {
-          this.log.info(`Updating display name from "${existingLightAccessory.displayName}" to "${displayName}"`);
-          existingLightAccessory.displayName = displayName;
-        }
-        existingLightAccessory.context.device = deviceContext;
-        if (singleAccessoryWithTV) {
-          new WLEDCombinedAccessory(this, existingLightAccessory, wledDevice, hyperHDRClient);
-        } else {
-          new WLEDLightAccessory(this, existingLightAccessory, wledDevice, hyperHDRClient);
-        }
-        this.api.updatePlatformAccessories([existingLightAccessory]);
-      } else {
-        this.log.info('Adding new light accessory:', displayName);
-        const lightAccessory = new this.api.platformAccessory(displayName, lightUuid);
-        lightAccessory.context.device = deviceContext;
-        if (singleAccessoryWithTV) {
-          new WLEDCombinedAccessory(this, lightAccessory, wledDevice, hyperHDRClient);
-        } else {
-          new WLEDLightAccessory(this, lightAccessory, wledDevice, hyperHDRClient);
-        }
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [lightAccessory]);
-      }
-
-      // --- Nightlight accessory (manual device) ---
-      const nightlightConfig = deviceSettings.nightlight || (this.config as any)?.manualDevicesSection?.nightlight || {};
-      const nightlightEnabled = nightlightConfig.enabled === true;
-      const nightlightTimers = Array.isArray(nightlightConfig.timers) ? nightlightConfig.timers : [];
-
-      if (nightlightEnabled && nightlightTimers.length > 0) {
-        const existingNightlightAccessory = this.accessories.find(a => a.UUID === nightlightUuid);
-        const nightlightDisplayName = `${displayName} Nightlight`;
-
-        if (existingNightlightAccessory) {
-          this.log.info('Restoring existing nightlight accessory from cache:', existingNightlightAccessory.displayName);
-          existingNightlightAccessory.context.device = { ...deviceContext, deviceSettings };
-          new WLEDNightlightAccessory(this, existingNightlightAccessory, wledDevice);
-          this.api.updatePlatformAccessories([existingNightlightAccessory]);
-        } else {
-          this.log.info('Adding new nightlight accessory:', nightlightDisplayName);
-          const nightlightAccessory = new this.api.platformAccessory(nightlightDisplayName, nightlightUuid);
-          nightlightAccessory.context.device = { ...deviceContext, deviceSettings };
-          new WLEDNightlightAccessory(this, nightlightAccessory, wledDevice);
-          this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [nightlightAccessory]);
-        }
-      } else {
-        // If there is a cached nightlight accessory but config no longer enables it, remove it
-        const existingNightlightAccessory = this.accessories.find(a => a.UUID === nightlightUuid);
-        if (existingNightlightAccessory) {
-          this.log.info(`Nightlight disabled for ${displayName}. Unregistering nightlight accessory...`);
-          this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingNightlightAccessory]);
-        }
-      }
-
-      // --- Presets/TV accessory ---
-      const tvDisplayName = `${displayName} ${this.getTvNameSuffix()}`;
-      const existingTVAccessory = this.accessories.find(a => a.UUID === tvUuid);
-
-      // If we're in single-accessory mode, ensure any old TV accessory is removed.
-      if (singleAccessoryWithTV) {
-        if (existingTVAccessory) {
-          this.log.info(`Single-accessory mode enabled for ${displayName}. Unregistering standalone TV accessory...`);
-          this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingTVAccessory]);
-        }
-        continue;
-      }
-
-      // Check if enabledPresets have changed (only applies to TV accessory)
-      const oldEnabledPresets = existingTVAccessory?.context.device?.deviceSettings?.enabledPresets || [];
-      const newEnabledPresets = device.deviceSettings?.enabledPresets || [];
-      const presetsChanged = JSON.stringify([...oldEnabledPresets].sort()) !== JSON.stringify([...newEnabledPresets].sort());
-
-      if (existingTVAccessory) {
-        if (presetsChanged) {
-          this.log.info(`Enabled presets changed for ${displayName}. Re-registering TV accessory to force Home app refresh...`);
-          this.log.debug(`Old presets: ${JSON.stringify(oldEnabledPresets)}`);
-          this.log.debug(`New presets: ${JSON.stringify(newEnabledPresets)}`);
-
-          // Unregister the old TV accessory
-          this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingTVAccessory]);
-
-          // Create a new TV accessory with updated presets
-          const newTVAccessory = new this.api.platformAccessory(tvDisplayName, tvUuid, this.api.hap.Categories.TELEVISION);
-          newTVAccessory.context.device = deviceContext;
-          new WLEDPresetsAccessory(this, newTVAccessory, wledDevice);
-          this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [newTVAccessory]);
-
-          // Update our accessories cache
-          const index = this.accessories.findIndex(a => a.UUID === tvUuid);
-          if (index !== -1) {
-            this.accessories[index] = newTVAccessory;
-          } else {
-            this.accessories.push(newTVAccessory);
-          }
-        } else {
-          this.log.info('Restoring existing TV accessory from cache:', existingTVAccessory.displayName);
-          existingTVAccessory.context.device = deviceContext;
-          new WLEDPresetsAccessory(this, existingTVAccessory, wledDevice);
-          this.api.updatePlatformAccessories([existingTVAccessory]);
-        }
-      } else {
-        this.log.info('Adding new TV accessory:', tvDisplayName);
-        const tvAccessory = new this.api.platformAccessory(tvDisplayName, tvUuid, this.api.hap.Categories.TELEVISION);
-        tvAccessory.context.device = deviceContext;
-        new WLEDPresetsAccessory(this, tvAccessory, wledDevice);
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [tvAccessory]);
-      }
+      this.registerDevice({
+        host: device.host,
+        port: device.port || 80,
+        displayName,
+        deviceSettings,
+        deviceContext,
+        isManual: true,
+        configDevice: device,
+      });
     }
 
-    // Check which accessories are no longer in the config and should be removed
+    // Remove accessories whose device is no longer configured
     for (const accessory of this.accessories) {
       const device = accessory.context.device;
       if (!device) {
         continue;
       }
 
-      // Check if the accessory's device is still configured (matches either UUID for the device)
-      const isConfigured = devices.some((configuredDevice: any) => {
+      const isConfigured = devices.some((configuredDevice) => {
+        if (configuredDevice.enabled === false) return false;
         const lightUuid = this.lightUuid(configuredDevice.host);
         const tvUuid = this.tvUuid(configuredDevice.host);
         const nightlightUuid = this.nightlightUuid(configuredDevice.host);
-        const settings = configuredDevice.deviceSettings || configuredDevice;
-        const singleAccessoryWithTV = settings.singleAccessoryWithTV === true;
+        const effectsUuid = this.effectsUuid(configuredDevice.host);
+        const settings = resolveDeviceSettings(configuredDevice);
+        const exposePresets = this.shouldExposePresets(settings);
+        const singleAccessoryWithTV = settings.singleAccessoryWithTV === true && exposePresets;
+        const exposeSegments = settings.exposeSegments === true;
+        const exposeEffects = settings.exposeEffects === true;
+        const isSeg = accessory.context?.device?.host === configuredDevice.host
+          && typeof accessory.context?.device?.segmentIndex === 'number';
         return accessory.UUID === lightUuid ||
-          (!singleAccessoryWithTV && accessory.UUID === tvUuid) ||
-          accessory.UUID === nightlightUuid;
+          (!singleAccessoryWithTV && exposePresets && accessory.UUID === tvUuid) ||
+          accessory.UUID === nightlightUuid ||
+          (exposeEffects && accessory.UUID === effectsUuid) ||
+          (exposeSegments && isSeg);
       });
 
       if (!isConfigured) {
         this.log.info('Removing existing accessory from cache:', accessory.displayName);
 
-        // Clean up the WLED device instance (only once per host)
         const deviceHost = device.host;
         if (deviceHost && this.wledDevices.has(deviceHost)) {
           const wledDevice = this.wledDevices.get(deviceHost);
@@ -448,6 +572,9 @@ export class WLEDPlatform implements DynamicPlatformPlugin {
             wledDevice.cleanup();
           }
           this.wledDevices.delete(deviceHost);
+        }
+        if (deviceHost) {
+          this.releaseHyperHDRClient(deviceHost);
         }
 
         this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);

@@ -7,16 +7,15 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 2018,
     sourceType: 'module',
-    project: './tsconfig.json',
+    project: ['./tsconfig.json', './homebridge-ui/tsconfig.json'],
   },
   plugins: [
     '@typescript-eslint',
   ],
   rules: {
-    // Customize rules as needed
-    '@typescript-eslint/no-explicit-any': 'off', // Allow any for now, can be tightened later
+    '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    'no-console': 'off', // Logging is expected in Homebridge plugins
+    'no-console': 'off',
     'semi': ['error', 'always'],
     'quotes': ['error', 'single', { avoidEscape: true }],
   },
@@ -24,7 +23,19 @@ module.exports = {
     'dist',
     'node_modules',
     'coverage',
-    '*.js',
+    'homebridge-ui/public/**',
+    'scripts/**',
+    '**/*.js',
+    '**/*.d.ts',
+  ],
+  overrides: [
+    {
+      files: ['homebridge-ui/server.ts'],
+      rules: {
+        // Loads sibling dist modules at runtime (compiled plugin output).
+        '@typescript-eslint/no-var-requires': 'off',
+      },
+    },
   ],
   env: {
     node: true,

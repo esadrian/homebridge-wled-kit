@@ -1,30 +1,40 @@
 {
   "name": "homebridge-wled-kit",
-  "displayName": "WLED Kit",
-  "version": "3.2.0-local.2",
+  "displayName": "Homebridge WLED Kit",
+  "version": "1.0.0-local.30",
   "description": "Homebridge plugin for WLED LED controllers",
   "main": "dist/index.js",
+  "files": [
+    "dist",
+    "config.schema.json",
+    "LICENSE",
+    "README.md",
+    "branding/icon.png",
+    "icon.png"
+  ],
   "scripts": {
     "clean": "rm -rf dist coverage",
-    "lint": "eslint src/**.ts",
+    "lint": "eslint \"src/**/*.ts\" \"homebridge-ui/server.ts\"",
     "test": "jest --forceExit",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --forceExit",
     "test:verbose": "jest --verbose --forceExit",
     "test:ci": "jest --ci --coverage --maxWorkers=2 --forceExit",
-    "test:unit": "jest tests/wledDevice.test.ts tests/discoveryService.test.ts tests/platform.test.ts tests/settings.test.ts --forceExit",
+    "test:unit": "jest tests/wledDevice.test.ts tests/discoveryService.test.ts tests/platform.test.ts tests/settings.test.ts tests/platformAccessory.test.ts tests/nightlightAccessory.test.ts tests/hyperHDRClient.test.ts tests/combinedAccessory.test.ts tests/wledUtils.test.ts --forceExit",
     "prebuild": "npm run lint && npm run test:unit",
     "build": "npm run clean && tsc && npm run build:ui",
-    "build:ui": "tsc -p homebridge-ui/tsconfig.json && cp -r homebridge-ui/public dist/homebridge-ui/",
+    "build:ui": "tsc -p homebridge-ui/tsconfig.json && cp branding/Homebridge_x_WLED.png homebridge-ui/public/Homebridge_x_WLED.png && rm -rf dist/homebridge-ui/public && mkdir -p dist/homebridge-ui && cp -r homebridge-ui/public dist/homebridge-ui/",
     "prepublishOnly": "npm run build",
-    "watch": "npm run build -- --watch"
+    "watch": "tsc -w",
+    "watch:ui": "npx --yes chokidar-cli 'homebridge-ui/**/*' -c 'npm run build:ui'"
   },
   "engines": {
-    "node": ">=14.0.0",
-    "homebridge": ">=1.6.0 || ^2.0.0-beta.0"
+    "node": "^20 || ^22 || ^24",
+    "homebridge": "^1.8.0 || ^2.0.0"
   },
   "keywords": [
     "homebridge-plugin",
+    "supports-hap",
     "wled",
     "led",
     "light",
@@ -42,7 +52,12 @@
       "url": "https://paypal.me/drewcovi"
     }
   ],
-  "author": "Drew Covi",
+  "author": {
+    "name": "esadrian"
+  },
+  "homebridge": {
+    "pluginIcon": "https://raw.githubusercontent.com/esadrian/homebridge-wled-kit/main/branding/icon.png"
+  },
   "license": "MIT",
   "homepage": "https://github.com/esadrian/homebridge-wled-kit#readme",
   "repository": {
@@ -52,33 +67,25 @@
   "bugs": {
     "url": "https://github.com/esadrian/homebridge-wled-kit/issues"
   },
-  "homebridge-plugin-ui": {
-    "pluginAlias": "WLED Kit",
-    "customUiPath": "./dist/homebridge-ui"
-  },
   "dependencies": {
-    "@homebridge/plugin-ui-utils": "^1.0.3",
+    "@homebridge/plugin-ui-utils": "^2.2.5",
     "axios": "^1.6.0",
     "dnssd": "^0.4.1",
-    "node-persist": "^3.1.0",
     "ws": "^8.16.0"
   },
   "devDependencies": {
-    "@types/chai": "^5.2.3",
     "@types/dnssd": "^0.4.5",
     "@types/jest": "^30.0.0",
-    "@types/node": "^18.19.130",
+    "@types/node": "^20.19.43",
     "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "axios-mock-adapter": "^2.1.0",
-    "chai": "^6.2.2",
     "eslint": "^8.0.0",
-    "homebridge": "^1.6.0",
-    "homebridge-config-ui-x": "^5.19.0",
+    "homebridge": "^2.3.1",
+    "homebridge-config-ui-x": "^5.27.0",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.6",
-    "typescript": "^5.0.0",
-    "ws-mock": "^0.1.0"
+    "typescript": "^5.0.0"
   }
 }

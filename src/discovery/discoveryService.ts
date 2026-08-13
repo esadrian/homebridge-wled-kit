@@ -3,7 +3,7 @@ import * as dnssd from 'dnssd';
 import * as dgram from 'dgram';
 import * as http from 'http';
 
-import axios from 'axios';
+import { fetchWledInfo, looksLikeWled } from '../shared/wledUtils';
 
 export interface DiscoveredWLEDDevice {
   name: string;
@@ -25,10 +25,8 @@ export class WLEDDiscoveryService {
   private discoveryListeners: Array<(devices: DiscoveredWLEDDevice[]) => void> = [];
   private isDiscovering = false;
   private discoveryTimer?: NodeJS.Timeout;
-  private readonly DISCOVERY_INTERVAL = 300000; // 5 minutes
   private readonly MDNS_SERVICE_TYPE = '_wled._tcp';
-  private readonly UDP_PORT = 21324; // WLED UDP notification port
-  private readonly UDP_DISCOVERY_PORT = 21324; // WLED UDP sync port
+  private readonly UDP_DISCOVERY_PORT = 21324; // WLED UDP sync/notification port
   private checkQueue: Array<{host: string; port: number; method: 'mdns' | 'ssdp' | 'direct'}> = [];
   private isProcessingQueue = false;
 
@@ -57,10 +55,12 @@ export class WLEDDiscoveryService {
     this.log.info('Starting WLED device discovery');
     this.discoverDevices();
 
-    // Setup periodic rediscovery
-    this.discoveryTimer = setInterval(() => {
-      this.discoverDevices();
-    }, this.DISCOVERY_INTERVAL);
+    // On-demand scans (Custom UI) should not keep rediscovering every 5 minutes.
+    // mDNS/UDP listeners stay active until stopDiscovery(); no long-lived interval.
+    if (this.discoveryTimer) {
+      clearInterval(this.discoveryTimer);
+      this.discoveryTimer = undefined;
+    }
   }
 
   /**
@@ -334,13 +334,8 @@ export class WLEDDiscoveryService {
     try {
       this.log.debug(`Attempting HTTP request to http://${host}:${port}/json/info`);
 
-      const response = await axios.get(`http://${host}:${port}/json/info`, {
-        timeout: 20000, // Increased to 20s for slow-responding devices
-        // Disable keep-alive to prevent connection reuse issues
-        headers: {
-          'Connection': 'close',
-        },
-        // Force new connection for each request
+      const info = await fetchWledInfo(host, port, 20000, {
+        headers: { Connection: 'close' },
         httpAgent: new http.Agent({
           keepAlive: false,
           maxSockets: 1,
@@ -348,23 +343,20 @@ export class WLEDDiscoveryService {
       });
 
       this.log.debug(`Received response from ${host}:${port}`);
-      const data = response.data;
 
-      // Check if this is a WLED device
-      if (data && data.ver && (data.name || data.brand === 'WLED')) {
-        // This is a WLED device!
-        this.log.debug(`Confirmed WLED device: ${data.name} at ${host}:${port}`);
+      if (info && looksLikeWled(info.raw)) {
+        this.log.debug(`Confirmed WLED device: ${info.name} at ${host}:${port}`);
 
         const device: DiscoveredWLEDDevice = {
-          name: (data.name || `WLED ${host}`).replace(/\.local$/i, ''),
-          host: host,
-          port: port,
-          id: data.mac?.replace(/:/g, '') || `wled-${host}`,
-          discoveryMethod: discoveryMethod,
+          name: info.name,
+          host,
+          port,
+          id: info.mac.replace(/:/g, '') || `wled-${host}`,
+          discoveryMethod,
           info: {
-            version: data.ver || 'Unknown',
-            macAddress: data.mac || 'Unknown',
-            ledCount: data.leds?.count || 0,
+            version: info.version,
+            macAddress: info.mac,
+            ledCount: info.ledCount,
           },
         };
 
@@ -385,35 +377,6 @@ export class WLEDDiscoveryService {
         this.log.debug(`Error checking ${host}:${port}: ${error.message}`);
       }
       return false;
-    }
-  }
-
-  /**
-   * Get additional information about a discovered device
-   */
-  private async enrichDeviceInfo(device: DiscoveredWLEDDevice): Promise<void> {
-    try {
-      const response = await axios.get(`http://${device.host}:${device.port}/json/info`, { timeout: 5000 });
-      const data = response.data;
-
-      device.info = {
-        version: data.ver || 'Unknown',
-        macAddress: data.mac || 'Unknown',
-        ledCount: data.leds?.count || 0,
-      };
-
-      // Update name if available
-      if (data.name) {
-        device.name = data.name.replace(/\.local$/i, '');
-      }
-
-      // Update the device in the map using device ID
-      this.discoveredDevices.set(device.id, device);
-
-      // Notify listeners
-      this.notifyListeners();
-    } catch (error) {
-      this.log.debug(`Could not get additional info for WLED device at ${device.host}:${device.port}`, error);
     }
   }
 
@@ -470,32 +433,29 @@ export class WLEDDiscoveryService {
    */
   public async addDeviceByHost(host: string, port = 80): Promise<DiscoveredWLEDDevice | null> {
     try {
-      // Check if device already exists
       if (this.discoveredDevices.has(host)) {
         return this.discoveredDevices.get(host) || null;
       }
-      
-      // Try to connect to the device
-      const response = await axios.get(`http://${host}:${port}/json/info`, { timeout: 5000 });
-      const data = response.data;
-      
-      // This appears to be a valid WLED device
+
+      const info = await fetchWledInfo(host, port, 5000);
+      if (!info || !looksLikeWled(info.raw)) {
+        return null;
+      }
+
       const device: DiscoveredWLEDDevice = {
-        name: (data.name || `WLED ${host}`).replace(/\.local$/i, ''),
-        host: host,
-        port: port,
-        id: data.mac?.replace(/:/g, '') || `wled-${host}`,
+        name: info.name,
+        host,
+        port,
+        id: info.mac.replace(/:/g, '') || `wled-${host}`,
         discoveryMethod: 'direct',
         info: {
-          version: data.ver || 'Unknown',
-          macAddress: data.mac || 'Unknown',
-          ledCount: data.leds?.count || 0,
+          version: info.version,
+          macAddress: info.mac,
+          ledCount: info.ledCount,
         },
       };
-      
-      // Add to map
+
       this.addDiscoveredDevice(device);
-      
       return device;
     } catch (error) {
       this.log.error(`Failed to add device by host ${host}:${port}:`, error);
