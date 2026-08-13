@@ -548,10 +548,6 @@ Homebridge caches installed plugins by version. **Always bump the version in `pa
 
 Without the version bump, you cannot reliably confirm that your local changes are what Homebridge is running.
 
-### Optional: remote sync to a Homebridge server
-
-If you develop against a remote machine (for example a Raspberry Pi), you can keep personal rsync scripts in a gitignored `.local/` folder. See `scripts/pi.env.example` and `scripts/pi-sync.example.sh` for a starting point — copy and adapt them locally; they are not part of the published plugin.
-
 ### Available Scripts
 
 - `npm run build` - Clean, lint, test, and build the plugin and UI
